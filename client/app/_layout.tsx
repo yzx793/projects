@@ -25,6 +25,9 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="course-detail" />
         <Stack.Screen name="question-detail" />
+        <Stack.Screen name="camera" options={{ gestureEnabled: false, animation: 'fade' }} />
+        <Stack.Screen name="search-result" />
+        <Stack.Screen name="favorites" />
       </Stack>
       <Toast />
     </Provider>

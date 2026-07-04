@@ -265,6 +265,30 @@ export default function HomeScreen() {
         <View style={styles.quickActionsRow}>
           <TouchableOpacity
             style={styles.quickActionItem}
+            onPress={() => router.push('/camera')}
+          >
+            <LinearGradient
+              colors={['#FF6584', '#FF8FA3']}
+              style={styles.quickActionGradient}
+            >
+              <FontAwesome6 name="camera" size={24} color="#FFF" />
+            </LinearGradient>
+            <Text style={styles.quickActionText}>拍照搜题</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickActionItem}
+            onPress={() => router.push('/favorites')}
+          >
+            <LinearGradient
+              colors={['#FDCB6E', '#F9A825']}
+              style={styles.quickActionGradient}
+            >
+              <FontAwesome6 name="star" size={24} color="#FFF" />
+            </LinearGradient>
+            <Text style={styles.quickActionText}>我的收藏</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickActionItem}
             onPress={() => router.push('/courses')}
           >
             <LinearGradient
@@ -280,24 +304,12 @@ export default function HomeScreen() {
             onPress={() => router.push('/wrong-questions')}
           >
             <LinearGradient
-              colors={['#FF6584', '#FF8FA3']}
+              colors={['#00B894', '#55EFC4']}
               style={styles.quickActionGradient}
             >
               <FontAwesome6 name="circle-xmark" size={24} color="#FFF" />
             </LinearGradient>
             <Text style={styles.quickActionText}>错题本</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickActionItem}
-            onPress={() => router.push('/profile')}
-          >
-            <LinearGradient
-              colors={['#00B894', '#55EFC4']}
-              style={styles.quickActionGradient}
-            >
-              <FontAwesome6 name="chart-line" size={24} color="#FFF" />
-            </LinearGradient>
-            <Text style={styles.quickActionText}>学习报告</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -508,7 +520,9 @@ const styles = StyleSheet.create({
   quickActionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
+    flexWrap: 'wrap',
+    gap: 12,
     marginBottom: 20,
   },
   quickActionItem: {
