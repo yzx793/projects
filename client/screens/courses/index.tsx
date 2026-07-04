@@ -1,0 +1,415 @@
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  Dimensions,
+} from 'react-native';
+import { FontAwesome6 } from '@expo/vector-icons';
+import { Screen } from '@/components/Screen';
+import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { useFocusEffect } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
+
+const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+const { width } = Dimensions.get('window');
+
+const subjectColors: Record<string, string> = {
+  math: '#6C63FF',
+  chinese: '#E17055',
+  english: '#00B894',
+  physics: '#0984E3',
+  chemistry: '#FDCB6E',
+};
+
+interface Subject {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  totalCourses: number;
+}
+
+interface Course {
+  id: number;
+  title: string;
+  subject: string;
+  subjectName: string;
+  teacher: string;
+  thumbnail: string;
+  duration: number;
+  lessons: number;
+  completedLessons: number;
+  difficulty: string;
+  description: string;
+}
+
+const difficultyLabels: Record<string, string> = {
+  easy: '基础',
+  medium: '进阶',
+  hard: '挑战',
+};
+
+const difficultyColors: Record<string, string> = {
+  easy: '#00B894',
+  medium: '#6C63FF',
+  hard: '#FF6584',
+};
+
+export default function CoursesScreen() {
+  const router = useSafeRouter();
+  const insets = useSafeAreaInsets();
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [activeSubject, setActiveSubject] = useState('all');
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      /**
+       * 服务端文件：server/src/routes/courses.ts
+       * 接口：GET /api/v1/courses/subjects
+       */
+      const subjectsRes = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/courses/subjects`);
+      const subjectsJson = await subjectsRes.json();
+      if (subjectsJson.code === 0) {
+        setSubjects(subjectsJson.data);
+      }
+
+      /**
+       * 服务端文件：server/src/routes/courses.ts
+       * 接口：GET /api/v1/courses
+       * Query 参数: subject?: string
+       */
+      const subjectParam = activeSubject === 'all' ? '' : `?subject=${activeSubject}`;
+      const coursesRes = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/courses${subjectParam}`);
+      const coursesJson = await coursesRes.json();
+      if (coursesJson.code === 0) {
+        setCourses(coursesJson.data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch courses:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeSubject]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData])
+  );
+
+  const handleSubjectChange = (subjectId: string) => {
+    setActiveSubject(subjectId);
+  };
+
+  if (loading && courses.length === 0) {
+    return (
+      <Screen safeAreaEdges={['left', 'right', 'bottom']}>
+        <View style={[styles.loadingContainer, { paddingTop: insets.top + 20 }]}>
+          <ActivityIndicator size="large" color="#6C63FF" />
+        </View>
+      </Screen>
+    );
+  }
+
+  return (
+    <Screen safeAreaEdges={['left', 'right', 'bottom']} backgroundColor="#F0F0F3">
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: 120 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.pageTitle}>课程中心</Text>
+          <Text style={styles.pageSubtitle}>选择学科，开始学习之旅</Text>
+        </View>
+
+        {/* Subject Tabs */}
+        <View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.subjectTabsContainer}
+          >
+          <TouchableOpacity
+            style={[
+              styles.subjectTab,
+              activeSubject === 'all' && styles.subjectTabActive,
+            ]}
+            onPress={() => handleSubjectChange('all')}
+          >
+            <FontAwesome6
+              name="table-cells-large"
+              size={16}
+              color={activeSubject === 'all' ? '#FFF' : '#636E72'}
+            />
+            <Text
+              style={[
+                styles.subjectTabText,
+                activeSubject === 'all' && styles.subjectTabTextActive,
+              ]}
+            >
+              全部
+            </Text>
+          </TouchableOpacity>
+          {subjects.map((s) => (
+            <TouchableOpacity
+              key={s.id}
+              style={[
+                styles.subjectTab,
+                activeSubject === s.id && { backgroundColor: s.color },
+              ]}
+              onPress={() => handleSubjectChange(s.id)}
+            >
+              <FontAwesome6
+                name={s.icon as any}
+                size={16}
+                color={activeSubject === s.id ? '#FFF' : s.color}
+              />
+              <Text
+                style={[
+                  styles.subjectTabText,
+                  activeSubject === s.id && styles.subjectTabTextActive,
+                ]}
+              >
+                {s.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          </ScrollView>
+        </View>
+
+        {/* Course List */}
+        <View style={styles.courseListContainer}>
+          {courses.map((course) => (
+            <TouchableOpacity
+              key={course.id}
+              activeOpacity={0.8}
+              onPress={() => router.push('/course-detail', { courseId: course.id })}
+            >
+              <View style={styles.shadowDark}>
+                <View style={styles.shadowLight}>
+                  <View style={styles.courseCard}>
+                    <Image
+                      source={{ uri: course.thumbnail }}
+                      style={styles.courseThumbnail}
+                      contentFit="cover"
+                    />
+                    <View style={styles.courseInfo}>
+                      <View style={styles.courseTopRow}>
+                        <View
+                          style={[
+                            styles.difficultyTag,
+                            { backgroundColor: `${difficultyColors[course.difficulty]}18` },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.difficultyTagText,
+                              { color: difficultyColors[course.difficulty] },
+                            ]}
+                          >
+                            {difficultyLabels[course.difficulty]}
+                          </Text>
+                        </View>
+                        <View style={[styles.subjectBadge, { backgroundColor: `${subjectColors[course.subject]}18` }]}>
+                          <Text style={[styles.subjectBadgeText, { color: subjectColors[course.subject] }]}>
+                            {course.subjectName}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.courseTitle} numberOfLines={2}>{course.title}</Text>
+                      <Text style={styles.courseTeacher}>{course.teacher}</Text>
+                      <View style={styles.courseBottomRow}>
+                        <View style={styles.courseMetaItem}>
+                          <FontAwesome6 name="circle-play" size={12} color="#636E72" />
+                          <Text style={styles.courseMetaText}>{course.lessons} 课时</Text>
+                        </View>
+                        <View style={styles.courseMetaItem}>
+                          <FontAwesome6 name="clock" size={12} color="#636E72" />
+                          <Text style={styles.courseMetaText}>{course.duration} 分钟</Text>
+                        </View>
+                        <View style={styles.courseMetaItem}>
+                          <FontAwesome6 name="circle-check" size={12} color="#00B894" />
+                          <Text style={styles.courseMetaText}>{course.completedLessons}/{course.lessons}</Text>
+                        </View>
+                      </View>
+                      {/* Course progress bar */}
+                      <View style={styles.courseProgressBg}>
+                        <View
+                          style={[
+                            styles.courseProgressFill,
+                            {
+                              width: `${(course.completedLessons / course.lessons) * 100}%` as any,
+                              backgroundColor: subjectColors[course.subject],
+                            },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  header: {
+    paddingHorizontal: 24,
+    marginBottom: 16,
+  },
+  pageTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#2D3436',
+  },
+  pageSubtitle: {
+    fontSize: 14,
+    color: '#636E72',
+    marginTop: 4,
+  },
+  subjectTabsScroll: {
+    marginBottom: 8,
+  },
+  subjectTabsContainer: {
+    paddingHorizontal: 24,
+    gap: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  subjectTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 9999,
+    backgroundColor: '#E8E8EB',
+  },
+  subjectTabActive: {
+    backgroundColor: '#6C63FF',
+  },
+  subjectTabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#636E72',
+  },
+  subjectTabTextActive: {
+    color: '#FFF',
+  },
+  courseListContainer: {
+    paddingHorizontal: 24,
+  },
+  shadowDark: {
+    shadowColor: '#D1D9E6',
+    shadowOffset: { width: 6, height: 6 },
+    shadowOpacity: 0.7,
+    shadowRadius: 8,
+    borderRadius: 24,
+    marginBottom: 16,
+    elevation: 6,
+    backgroundColor: '#F0F0F3',
+  },
+  shadowLight: {
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: -6, height: -6 },
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+    backgroundColor: '#F0F0F3',
+    borderRadius: 24,
+    padding: 0,
+    overflow: 'hidden',
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.5)',
+  },
+  courseCard: {
+    flexDirection: 'row',
+  },
+  courseThumbnail: {
+    width: 120,
+    height: 140,
+    borderTopLeftRadius: 24,
+    borderBottomLeftRadius: 24,
+  },
+  courseInfo: {
+    flex: 1,
+    padding: 14,
+    justifyContent: 'space-between',
+  },
+  courseTopRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 4,
+  },
+  difficultyTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 9999,
+  },
+  difficultyTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  subjectBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 9999,
+  },
+  subjectBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  courseTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#2D3436',
+  },
+  courseTeacher: {
+    fontSize: 12,
+    color: '#636E72',
+    marginTop: 2,
+  },
+  courseBottomRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 6,
+  },
+  courseMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  courseMetaText: {
+    fontSize: 10,
+    color: '#636E72',
+  },
+  courseProgressBg: {
+    height: 3,
+    backgroundColor: '#E8E8EB',
+    borderRadius: 2,
+    marginTop: 6,
+    overflow: 'hidden',
+  },
+  courseProgressFill: {
+    height: 3,
+    borderRadius: 2,
+  },
+});
