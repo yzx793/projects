@@ -164,33 +164,31 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Quick Stats */}
-        <View style={styles.statsRow}>
-          <View style={styles.shadowDark}>
-            <View style={[styles.shadowLight, styles.statCard]}>
-              <View style={[styles.iconContainer, { backgroundColor: 'rgba(108,99,255,0.12)' }]}>
-                <FontAwesome6 name="fire" size={22} color="#6C63FF" />
-              </View>
-              <Text style={styles.statValue}>15</Text>
-              <Text style={styles.statLabel}>连续天数</Text>
+        {/* Quick Stats - 4 compact items in one row */}
+        <View style={styles.shadowDark}>
+          <View style={[styles.shadowLight, styles.compactStatsRow]}>
+            <View style={styles.compactStatItem}>
+              <FontAwesome6 name="bullseye" size={16} color="#6C63FF" />
+              <Text style={styles.compactStatValue}>85%</Text>
+              <Text style={styles.compactStatLabel}>正确率</Text>
             </View>
-          </View>
-          <View style={styles.shadowDark}>
-            <View style={[styles.shadowLight, styles.statCard]}>
-              <View style={[styles.iconContainer, { backgroundColor: 'rgba(255,101,132,0.12)' }]}>
-                <FontAwesome6 name="clock" size={22} color="#FF6584" />
-              </View>
-              <Text style={styles.statValue}>128h</Text>
-              <Text style={styles.statLabel}>累计学习</Text>
+            <View style={styles.compactStatDivider} />
+            <View style={styles.compactStatItem}>
+              <FontAwesome6 name="fire" size={16} color="#FF6584" />
+              <Text style={styles.compactStatValue}>15天</Text>
+              <Text style={styles.compactStatLabel}>连续</Text>
             </View>
-          </View>
-          <View style={styles.shadowDark}>
-            <View style={[styles.shadowLight, styles.statCard]}>
-              <View style={[styles.iconContainer, { backgroundColor: 'rgba(0,184,148,0.12)' }]}>
-                <FontAwesome6 name="trophy" size={22} color="#00B894" />
-              </View>
-              <Text style={styles.statValue}>Lv.12</Text>
-              <Text style={styles.statLabel}>当前等级</Text>
+            <View style={styles.compactStatDivider} />
+            <View style={styles.compactStatItem}>
+              <FontAwesome6 name="ranking-star" size={16} color="#00B894" />
+              <Text style={styles.compactStatValue}>第3</Text>
+              <Text style={styles.compactStatLabel}>排名</Text>
+            </View>
+            <View style={styles.compactStatDivider} />
+            <View style={styles.compactStatItem}>
+              <FontAwesome6 name="circle-check" size={16} color="#FDCB6E" />
+              <Text style={styles.compactStatValue}>42题</Text>
+              <Text style={styles.compactStatLabel}>答对</Text>
             </View>
           </View>
         </View>
@@ -433,6 +431,36 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 24,
     marginBottom: 4,
+  },
+  compactStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    marginHorizontal: 24,
+    marginBottom: 4,
+  },
+  compactStatItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  compactStatDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: 'rgba(0,0,0,0.06)',
+  },
+  compactStatValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#2D3436',
+    marginTop: 4,
+  },
+  compactStatLabel: {
+    fontSize: 10,
+    color: '#636E72',
+    marginTop: 2,
+    fontWeight: '500',
   },
   statCard: {
     alignItems: 'center',
