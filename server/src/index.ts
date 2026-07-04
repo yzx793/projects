@@ -8,6 +8,7 @@ import wrongQuestionsRouter from "./routes/wrongQuestions.js";
 import searchRouter from "./routes/search.js";
 import favoritesRouter from "./routes/favorites.js";
 import exportRouter from "./routes/export.js";
+import aiRouter from "./routes/ai.js";
 
 const app = express();
 const port = process.env.PORT || 9091;
@@ -30,6 +31,7 @@ app.use('/api/v1/wrong-questions', wrongQuestionsRouter);
 app.use('/api/v1/search', searchRouter);
 app.use('/api/v1/favorites', favoritesRouter);
 app.use('/api/v1/export', exportRouter);
+app.use('/api/v1/ai', aiRouter);
 
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}/`);

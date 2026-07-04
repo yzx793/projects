@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Modal,
 } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { useFocusEffect } from 'expo-router';
+import EventSource from 'react-native-sse';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
 
@@ -47,6 +49,13 @@ export default function SearchResultScreen() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set());
   const [favoritedIds, setFavoritedIds] = useState<Set<number>>(new Set());
+  
+  // AI Analysis state
+  const [aiModalVisible, setAiModalVisible] = useState(false);
+  const [aiAnalyzing, setAiAnalyzing] = useState(false);
+  const [aiContent, setAiContent] = useState('');
+  const [aiQuestionTitle, setAiQuestionTitle] = useState('');
+  const sseRef = useRef<EventSource | null>(null);
 
   const fetchQuestions = useCallback(async () => {
     if (!questionIds) return;
@@ -80,6 +89,17 @@ export default function SearchResultScreen() {
     useCallback(() => {
       fetchQuestions();
     }, [fetchQuestions])
+  );
+
+  // Cleanup SSE on unmount
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        if (sseRef.current) {
+          sseRef.current.close();
+        }
+      };
+    }, [])
   );
 
   const handleSaveToWrongQuestions = useCallback(async (question: Question) => {
@@ -151,6 +171,72 @@ export default function SearchResultScreen() {
       console.error('Add to favorites error:', error);
       Alert.alert('错误', '收藏失败，请重试');
     }
+  }, []);
+
+  // AI Analysis handler
+  const handleAIAnalyze = useCallback((question: Question) => {
+    setAiQuestionTitle(question.title);
+    setAiContent('');
+    setAiAnalyzing(true);
+    setAiModalVisible(true);
+
+    // Close previous SSE connection if exists
+    if (sseRef.current) {
+      sseRef.current.close();
+    }
+
+    /**
+     * 服务端文件：server/src/routes/ai.ts
+     * 接口：POST /api/v1/ai/analyze (SSE)
+     * Body: { questionId: number }
+     */
+    const url = `${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/ai/analyze`;
+    
+    const es = new EventSource(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ questionId: question.id }),
+      pollingInterval: 0,
+    });
+
+    sseRef.current = es;
+
+    es.addEventListener('message', (event) => {
+      if (event.data === '[DONE]') {
+        setAiAnalyzing(false);
+        es.close();
+        return;
+      }
+      try {
+        const data = JSON.parse(event.data || '{}');
+        if (data.content) {
+          setAiContent(prev => prev + data.content);
+        }
+        if (data.error) {
+          Alert.alert('错误', data.error);
+          setAiAnalyzing(false);
+        }
+      } catch (e) {
+        console.error('Parse SSE data error:', e);
+      }
+    });
+
+    es.addEventListener('error', (event) => {
+      console.error('SSE error:', event);
+      setAiAnalyzing(false);
+      Alert.alert('错误', 'AI分析连接失败，请重试');
+    });
+  }, []);
+
+  const handleCloseAiModal = useCallback(() => {
+    if (sseRef.current) {
+      sseRef.current.close();
+    }
+    setAiModalVisible(false);
+    setAiAnalyzing(false);
+    setAiContent('');
   }, []);
 
   if (loading) {
@@ -286,6 +372,18 @@ export default function SearchResultScreen() {
                           </Text>
                         </TouchableOpacity>
                       </View>
+
+                      {/* AI Analysis Button */}
+                      <TouchableOpacity
+                        style={styles.aiAnalyzeBtn}
+                        onPress={() => handleAIAnalyze(question)}
+                      >
+                        <View style={styles.aiIconContainer}>
+                          <FontAwesome6 name="wand-magic-sparkles" size={18} color="#6C63FF" />
+                        </View>
+                        <Text style={styles.aiAnalyzeBtnText}>AI 智能讲解</Text>
+                        <FontAwesome6 name="arrow-right" size={14} color="#6C63FF" />
+                      </TouchableOpacity>
                     </View>
                   )}
                 </View>
@@ -305,6 +403,62 @@ export default function SearchResultScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* AI Analysis Modal */}
+      <Modal
+        visible={aiModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={handleCloseAiModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleRow}>
+                <View style={styles.aiModalIcon}>
+                  <FontAwesome6 name="wand-magic-sparkles" size={20} color="#6C63FF" />
+                </View>
+                <View>
+                  <Text style={styles.modalTitle}>AI 智能讲解</Text>
+                  <Text style={styles.modalSubtitle} numberOfLines={1}>{aiQuestionTitle}</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={handleCloseAiModal} style={styles.modalCloseBtn}>
+                <FontAwesome6 name="xmark" size={18} color="#636E72" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Modal Content */}
+            <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+              {aiContent ? (
+                <Text style={styles.aiContentText}>{aiContent}</Text>
+              ) : (
+                <View style={styles.aiLoadingContainer}>
+                  <ActivityIndicator size="large" color="#6C63FF" />
+                  <Text style={styles.aiLoadingText}>AI 正在分析题目...</Text>
+                  <Text style={styles.aiLoadingSubtext}>请稍候，正在生成详细讲解</Text>
+                </View>
+              )}
+              {aiAnalyzing && aiContent && (
+                <View style={styles.aiTypingIndicator}>
+                  <ActivityIndicator size="small" color="#6C63FF" />
+                  <Text style={styles.aiTypingText}>正在生成...</Text>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Modal Footer */}
+            {!aiAnalyzing && aiContent ? (
+              <View style={styles.modalFooter}>
+                <TouchableOpacity style={styles.modalDoneBtn} onPress={handleCloseAiModal}>
+                  <Text style={styles.modalDoneBtnText}>完成</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -491,6 +645,33 @@ const styles = StyleSheet.create({
   actionBtnTextFavorited: {
     color: '#B8860B',
   },
+  // AI Analysis Button
+  aiAnalyzeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    marginTop: 8,
+    borderRadius: 14,
+    backgroundColor: 'rgba(108,99,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(108,99,255,0.2)',
+  },
+  aiIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(108,99,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiAnalyzeBtnText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#6C63FF',
+  },
   bottomActions: {
     paddingHorizontal: 20,
     paddingTop: 16,
@@ -499,16 +680,128 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     paddingVertical: 16,
     borderRadius: 16,
     backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: '#6C63FF',
+    shadowColor: '#B2BEC3',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
   },
   continueSearchText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#6C63FF',
+  },
+  // AI Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+    paddingBottom: 34,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F3',
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  aiModalIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(108,99,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#2D3436',
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: '#636E72',
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F0F0F3',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    minHeight: 300,
+  },
+  aiContentText: {
+    fontSize: 15,
+    color: '#2D3436',
+    lineHeight: 26,
+  },
+  aiLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  aiLoadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3436',
+  },
+  aiLoadingSubtext: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#636E72',
+  },
+  aiTypingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 16,
+  },
+  aiTypingText: {
+    fontSize: 13,
+    color: '#6C63FF',
+  },
+  modalFooter: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F3',
+  },
+  modalDoneBtn: {
+    backgroundColor: '#6C63FF',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalDoneBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
