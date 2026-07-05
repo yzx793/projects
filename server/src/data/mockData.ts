@@ -164,6 +164,11 @@ export const wrongQuestions = [
     createdAt: '2025-01-10',
     solved: false,
     wrongCount: 2,
+    imageUrl: 'https://images.unsplash.com/photo-1635070041285-d0ccc366ec6c?w=400&h=300&fit=crop',
+    reviewStatus: 'pending' as const, // pending: 待复习, mastered: 已掌握, reviewing: 复习中
+    errorType: 'calculation' as const, // calculation: 计算错误, concept: 概念错误, careless: 粗心
+    tags: ['二次函数', '顶点坐标', '配方法'],
+    notes: '',
   },
   {
     id: 2,
@@ -179,6 +184,11 @@ export const wrongQuestions = [
     createdAt: '2025-01-09',
     solved: false,
     wrongCount: 1,
+    imageUrl: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400&h=300&fit=crop',
+    reviewStatus: 'pending' as const,
+    errorType: 'concept' as const,
+    tags: ['时态', '现在完成时', 'since用法'],
+    notes: '',
   },
   {
     id: 3,
@@ -194,6 +204,11 @@ export const wrongQuestions = [
     createdAt: '2025-01-08',
     solved: true,
     wrongCount: 1,
+    imageUrl: 'https://images.unsplash.com/photo-1636466472877-9d8e16a3c43f?w=400&h=300&fit=crop',
+    reviewStatus: 'mastered' as const,
+    errorType: 'careless' as const,
+    tags: ['牛顿定律', '力学', 'F=ma'],
+    notes: '公式记反了，下次注意',
   },
   {
     id: 4,
@@ -209,6 +224,11 @@ export const wrongQuestions = [
     createdAt: '2025-01-07',
     solved: false,
     wrongCount: 3,
+    imageUrl: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=400&h=300&fit=crop',
+    reviewStatus: 'reviewing' as const,
+    errorType: 'concept' as const,
+    tags: ['文言文', '通假字', '论语'],
+    notes: '',
   },
   {
     id: 5,
@@ -224,6 +244,11 @@ export const wrongQuestions = [
     createdAt: '2025-01-06',
     solved: false,
     wrongCount: 2,
+    imageUrl: 'https://images.unsplash.com/photo-1532634737-cae2f63472f7?w=400&h=300&fit=crop',
+    reviewStatus: 'pending' as const,
+    errorType: 'calculation' as const,
+    tags: ['化学方程式', '配平', '氧化还原'],
+    notes: '',
   },
 ];
 

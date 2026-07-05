@@ -6,21 +6,43 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
+  TextInput,
 } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { useFocusEffect } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
+const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || '';
 
-const subjectColors: Record<string, string> = {
-  math: '#6C63FF',
-  chinese: '#E17055',
-  english: '#00B894',
-  physics: '#0984E3',
-  chemistry: '#FDCB6E',
+const SUBJECTS = [
+  { key: 'all', label: '全部' },
+  { key: 'math', label: '数学' },
+  { key: 'english', label: '英语' },
+  { key: 'physics', label: '物理' },
+  { key: 'chemistry', label: '化学' },
+  { key: 'chinese', label: '语文' },
+];
+
+const REVIEW_STATUS = [
+  { key: 'all', label: '全部' },
+  { key: 'pending', label: '待复习' },
+  { key: 'reviewing', label: '复习中' },
+  { key: 'mastered', label: '已掌握' },
+];
+
+const reviewStatusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
+  pending: { label: '待复习', color: '#F59E0B', bgColor: '#FEF3C7' },
+  reviewing: { label: '复习中', color: '#3B82F6', bgColor: '#DBEAFE' },
+  mastered: { label: '已掌握', color: '#10B981', bgColor: '#D1FAE5' },
+};
+
+const errorTypeLabels: Record<string, string> = {
+  calculation: '计算错误',
+  concept: '概念错误',
+  careless: '粗心大意',
+  method: '方法错误',
 };
 
 interface WrongQuestion {
@@ -37,50 +59,57 @@ interface WrongQuestion {
   createdAt: string;
   solved: boolean;
   wrongCount: number;
+  reviewStatus: 'pending' | 'reviewing' | 'mastered';
+  errorType: string;
+  tags: string[];
+  imageUrl?: string;
 }
 
-interface SubjectStat {
-  subject: string;
-  subjectName: string;
-  count: number;
+interface ReviewStats {
+  pending: number;
+  reviewing: number;
+  mastered: number;
 }
-
-const difficultyLabels: Record<string, string> = {
-  easy: '基础',
-  medium: '进阶',
-  hard: '挑战',
-};
 
 const difficultyColors: Record<string, string> = {
-  easy: '#00B894',
-  medium: '#6C63FF',
-  hard: '#FF6584',
+  easy: '#10B981',
+  medium: '#F59E0B',
+  hard: '#EF4444',
 };
 
 export default function WrongQuestionsScreen() {
   const router = useSafeRouter();
-  const insets = useSafeAreaInsets();
   const [questions, setQuestions] = useState<WrongQuestion[]>([]);
-  const [subjectStats, setSubjectStats] = useState<SubjectStat[]>([]);
   const [activeSubject, setActiveSubject] = useState('all');
+  const [activeReviewStatus, setActiveReviewStatus] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [reviewStats, setReviewStats] = useState<ReviewStats>({ pending: 0, reviewing: 0, mastered: 0 });
   const [total, setTotal] = useState(0);
   const [unsolved, setUnsolved] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [batchMode, setBatchMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const subjectParam = activeSubject === 'all' ? '' : `?subject=${activeSubject}`;
+      const params = new URLSearchParams();
+      if (activeSubject !== 'all') params.append('subject', activeSubject);
+      if (activeReviewStatus !== 'all') params.append('reviewStatus', activeReviewStatus);
+      if (searchQuery) params.append('search', searchQuery);
+
+      const queryString = params.toString() ? `?${params.toString()}` : '';
+
       /**
        * 服务端文件：server/src/routes/wrongQuestions.ts
        * 接口：GET /api/v1/wrong-questions
-       * Query 参数: subject?: string, solved?: string
+       * Query 参数: subject?: string, reviewStatus?: string, search?: string
        */
-      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/wrong-questions${subjectParam}`);
+      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/wrong-questions${queryString}`);
       const json = await res.json();
       if (json.code === 0) {
         setQuestions(json.data.questions);
-        setSubjectStats(json.data.stats);
+        setReviewStats(json.data.reviewStats);
         setTotal(json.data.total);
         setUnsolved(json.data.unsolved);
       }
@@ -89,7 +118,7 @@ export default function WrongQuestionsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [activeSubject]);
+  }, [activeSubject, activeReviewStatus, searchQuery]);
 
   useFocusEffect(
     useCallback(() => {
@@ -97,298 +126,649 @@ export default function WrongQuestionsScreen() {
     }, [fetchData])
   );
 
-  if (loading && questions.length === 0) {
-    return (
-      <Screen safeAreaEdges={['left', 'right', 'bottom']}>
-        <View style={[styles.loadingContainer, { paddingTop: insets.top + 20 }]}>
-          <ActivityIndicator size="large" color="#6C63FF" />
-        </View>
-      </Screen>
+  const handleReviewStatusChange = async (questionId: number, status: 'pending' | 'reviewing' | 'mastered') => {
+    try {
+      /**
+       * 服务端文件：server/src/routes/wrongQuestions.ts
+       * 接口：POST /api/v1/wrong-questions/:id/review
+       * Path 参数：id: number
+       * Body 参数：reviewStatus: 'pending' | 'reviewing' | 'mastered'
+       */
+      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/wrong-questions/${questionId}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewStatus: status }),
+      });
+      const json = await res.json();
+      if (json.code === 0) {
+        fetchData();
+      }
+    } catch (e) {
+      console.error('Failed to update review status:', e);
+    }
+  };
+
+  const handleBatchDelete = () => {
+    if (selectedIds.length === 0) {
+      Alert.alert('提示', '请先选择要删除的错题');
+      return;
+    }
+
+    Alert.alert(
+      '确认删除',
+      `确定要删除选中的 ${selectedIds.length} 道错题吗？`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '删除',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              /**
+               * 服务端文件：server/src/routes/wrongQuestions.ts
+               * 接口：POST /api/v1/wrong-questions/batch/delete
+               * Body 参数：ids: number[]
+               */
+              const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/wrong-questions/batch/delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: selectedIds }),
+              });
+              const json = await res.json();
+              if (json.code === 0) {
+                Alert.alert('成功', json.message);
+                setSelectedIds([]);
+                setBatchMode(false);
+                fetchData();
+              }
+            } catch (e) {
+              console.error('Failed to batch delete:', e);
+              Alert.alert('错误', '删除失败，请重试');
+            }
+          },
+        },
+      ]
     );
-  }
+  };
 
-  return (
-    <Screen safeAreaEdges={['left', 'right', 'bottom']} backgroundColor="#F0F0F3">
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: 120 }}
-        showsVerticalScrollIndicator={false}
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const renderQuestionCard = (item: WrongQuestion) => {
+    const statusConfig = reviewStatusConfig[item.reviewStatus] || reviewStatusConfig.pending;
+    const isSelected = selectedIds.includes(item.id);
+
+    return (
+      <TouchableOpacity
+        key={item.id}
+        style={[styles.card, batchMode && isSelected && styles.cardSelected]}
+        onPress={() => {
+          if (batchMode) {
+            toggleSelect(item.id);
+          } else {
+            router.push('/question-detail', { id: item.id });
+          }
+        }}
+        onLongPress={() => {
+          if (!batchMode) {
+            setBatchMode(true);
+            toggleSelect(item.id);
+          }
+        }}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.pageTitle}>错题本</Text>
-          <Text style={styles.pageSubtitle}>查漏补缺，精准提升</Text>
+        <View style={styles.cardHeader}>
+          <View style={styles.cardHeaderLeft}>
+            {batchMode && (
+              <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                {isSelected && <FontAwesome6 name="check" size={12} color="#FFFFFF" />}
+              </View>
+            )}
+            <View style={[styles.subjectBadge, { backgroundColor: difficultyColors[item.difficulty] + '20' }]}>
+              <Text style={[styles.subjectBadgeText, { color: difficultyColors[item.difficulty] }]}>
+                {item.subjectName}
+              </Text>
+            </View>
+            <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: statusConfig.bgColor }]}>
+            <Text style={[styles.statusText, { color: statusConfig.color }]}>
+              {statusConfig.label}
+            </Text>
+          </View>
         </View>
 
-        {/* Summary Card */}
-        <View style={styles.shadowDark}>
-          <View style={styles.shadowLight}>
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryValue}>{total}</Text>
-                <Text style={styles.summaryLabel}>总错题</Text>
+        <Text style={styles.questionText} numberOfLines={2}>{item.question}</Text>
+
+        <View style={styles.cardFooter}>
+          <View style={styles.cardMeta}>
+            <View style={styles.metaItem}>
+              <FontAwesome6 name="circle-xmark" size={12} color="#EF4444" />
+              <Text style={styles.metaText}>错{item.wrongCount}次</Text>
+            </View>
+            {item.errorType && (
+              <View style={styles.metaItem}>
+                <FontAwesome6 name="tag" size={12} color="#6C63FF" />
+                <Text style={styles.metaText}>{errorTypeLabels[item.errorType] || item.errorType}</Text>
               </View>
-              <View style={styles.summaryDivider} />
-              <View style={styles.summaryItem}>
-                <Text style={[styles.summaryValue, { color: '#FF6584' }]}>{unsolved}</Text>
-                <Text style={styles.summaryLabel}>待攻克</Text>
-              </View>
-              <View style={styles.summaryDivider} />
-              <View style={styles.summaryItem}>
-                <Text style={[styles.summaryValue, { color: '#00B894' }]}>{total - unsolved}</Text>
-                <Text style={styles.summaryLabel}>已掌握</Text>
-              </View>
+            )}
+            <View style={styles.metaItem}>
+              <FontAwesome6 name="calendar" size={12} color="#A0AEC0" />
+              <Text style={styles.metaText}>{item.createdAt}</Text>
             </View>
           </View>
         </View>
 
-        {/* Subject Filter */}
-        <View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterContainer}
-          >
-          <TouchableOpacity
-            style={[styles.filterTab, activeSubject === 'all' && styles.filterTabActive]}
-            onPress={() => setActiveSubject('all')}
-          >
-            <Text style={[styles.filterTabText, activeSubject === 'all' && styles.filterTabTextActive]}>
-              全部
-            </Text>
-          </TouchableOpacity>
-          {subjectStats.map((stat) => (
-            <TouchableOpacity
-              key={stat.subject}
-              style={[
-                styles.filterTab,
-                activeSubject === stat.subject && { backgroundColor: subjectColors[stat.subject] || '#6C63FF' },
-              ]}
-              onPress={() => setActiveSubject(stat.subject)}
-            >
-              <Text
-                style={[
-                  styles.filterTabText,
-                  activeSubject === stat.subject && styles.filterTabTextActive,
-                ]}
+        {item.tags && item.tags.length > 0 && (
+          <View style={styles.tagsRow}>
+            {item.tags.slice(0, 3).map(tag => (
+              <View key={tag} style={styles.tag}>
+                <Text style={styles.tagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {!batchMode && (
+          <View style={styles.quickActions}>
+            {item.reviewStatus !== 'mastered' && (
+              <TouchableOpacity
+                style={styles.quickActionBtn}
+                onPress={() => handleReviewStatusChange(item.id, 'mastered')}
               >
-                {stat.subjectName} ({stat.count})
+                <FontAwesome6 name="circle-check" size={14} color="#10B981" />
+                <Text style={[styles.quickActionText, { color: '#10B981' }]}>已掌握</Text>
+              </TouchableOpacity>
+            )}
+            {item.reviewStatus === 'mastered' && (
+              <TouchableOpacity
+                style={styles.quickActionBtn}
+                onPress={() => handleReviewStatusChange(item.id, 'pending')}
+              >
+                <FontAwesome6 name="rotate-left" size={14} color="#F59E0B" />
+                <Text style={[styles.quickActionText, { color: '#F59E0B' }]}>重新复习</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <Screen>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>错题本</Text>
+        <View style={styles.headerActions}>
+          {batchMode ? (
+            <>
+              <TouchableOpacity onPress={() => { setBatchMode(false); setSelectedIds([]); }} style={styles.headerBtn}>
+                <Text style={styles.cancelText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleBatchDelete} style={styles.deleteBtn}>
+                <FontAwesome6 name="trash" size={16} color="#EF4444" />
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity onPress={() => setBatchMode(true)} style={styles.headerBtn}>
+                <FontAwesome6 name="list-check" size={18} color="#6C63FF" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push('/question-edit')} style={styles.addBtn}>
+                <FontAwesome6 name="plus" size={16} color="#FFFFFF" />
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </View>
+
+      {/* Stats Summary */}
+      <View style={styles.statsRow}>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{total}</Text>
+          <Text style={styles.statLabel}>总题数</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={[styles.statValue, { color: '#F59E0B' }]}>{reviewStats.pending}</Text>
+          <Text style={styles.statLabel}>待复习</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={[styles.statValue, { color: '#3B82F6' }]}>{reviewStats.reviewing}</Text>
+          <Text style={styles.statLabel}>复习中</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={[styles.statValue, { color: '#10B981' }]}>{reviewStats.mastered}</Text>
+          <Text style={styles.statLabel}>已掌握</Text>
+        </View>
+      </View>
+
+      {/* Search */}
+      <View style={styles.searchContainer}>
+        <FontAwesome6 name="magnifying-glass" size={14} color="#A0AEC0" />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="搜索错题..."
+          placeholderTextColor="#A0AEC0"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <FontAwesome6 name="xmark" size={14} color="#A0AEC0" />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Subject Filter */}
+      <View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.subjectScroll}
+          contentContainerStyle={styles.subjectTabs}
+        >
+          {SUBJECTS.map(subject => (
+            <TouchableOpacity
+              key={subject.key}
+              style={[styles.subjectTab, activeSubject === subject.key && styles.subjectTabActive]}
+              onPress={() => setActiveSubject(subject.key)}
+            >
+              <Text style={[styles.subjectTabText, activeSubject === subject.key && styles.subjectTabTextActive]}>
+                {subject.label}
               </Text>
             </TouchableOpacity>
           ))}
-          </ScrollView>
-        </View>
-        {questions.map((q) => (
+        </ScrollView>
+      </View>
+
+      {/* Review Status Filter */}
+      <View style={styles.statusFilterRow}>
+        {REVIEW_STATUS.map(status => (
           <TouchableOpacity
-            key={q.id}
-            activeOpacity={0.8}
-            onPress={() => router.push('/question-detail', { questionId: q.id })}
+            key={status.key}
+            style={[styles.statusChip, activeReviewStatus === status.key && styles.statusChipActive]}
+            onPress={() => setActiveReviewStatus(status.key)}
           >
-            <View style={styles.shadowDark}>
-              <View style={styles.shadowLight}>
-                <View style={styles.questionCard}>
-                  <View style={styles.questionHeader}>
-                    <View style={[styles.subjectDot, { backgroundColor: subjectColors[q.subject] || '#6C63FF' }]} />
-                    <Text style={styles.questionSubject}>{q.subjectName}</Text>
-                    <View
-                      style={[
-                        styles.difficultyBadge,
-                        { backgroundColor: `${difficultyColors[q.difficulty]}18` },
-                      ]}
-                    >
-                      <Text style={[styles.difficultyBadgeText, { color: difficultyColors[q.difficulty] }]}>
-                        {difficultyLabels[q.difficulty]}
-                      </Text>
-                    </View>
-                    {q.solved && (
-                      <View style={styles.solvedBadge}>
-                        <FontAwesome6 name="check" size={10} color="#00B894" />
-                        <Text style={styles.solvedBadgeText}>已掌握</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.questionTitle} numberOfLines={1}>{q.title}</Text>
-                  <Text style={styles.questionPreview} numberOfLines={2}>{q.question}</Text>
-                  <View style={styles.questionFooter}>
-                    <View style={styles.questionMetaItem}>
-                      <FontAwesome6 name="circle-xmark" size={12} color="#FF6584" />
-                      <Text style={styles.questionMetaText}>错{q.wrongCount}次</Text>
-                    </View>
-                    <View style={styles.questionMetaItem}>
-                      <FontAwesome6 name="lightbulb" size={12} color="#FDCB6E" />
-                      <Text style={styles.questionMetaText} numberOfLines={1}>{q.knowledgePoint}</Text>
-                    </View>
-                    <Text style={styles.questionDate}>{q.createdAt}</Text>
-                  </View>
-                </View>
-              </View>
-            </View>
+            <Text style={[styles.statusChipText, activeReviewStatus === status.key && styles.statusChipTextActive]}>
+              {status.label}
+            </Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+      </View>
+
+      {/* Practice Button */}
+      <TouchableOpacity
+        style={styles.practiceButton}
+        onPress={() => router.push('/practice')}
+      >
+        <FontAwesome6 name="wand-magic-sparkles" size={16} color="#6C63FF" />
+        <Text style={styles.practiceButtonText}>组卷练习</Text>
+        <FontAwesome6 name="chevron-right" size={12} color="#A0AEC0" />
+      </TouchableOpacity>
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#6C63FF" />
+        </View>
+      ) : (
+        <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+          {questions.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <FontAwesome6 name="inbox" size={48} color="#E2E8F0" />
+              <Text style={styles.emptyText}>暂无错题记录</Text>
+              <Text style={styles.emptySubText}>拍照搜题后自动收录错题</Text>
+            </View>
+          ) : (
+            questions.map(renderQuestionCard)
+          )}
+          <View style={{ height: 20 }} />
+        </ScrollView>
+      )}
+
+      {/* Batch Mode Footer */}
+      {batchMode && (
+        <View style={styles.batchFooter}>
+          <Text style={styles.batchFooterText}>已选择 {selectedIds.length} 项</Text>
+          <TouchableOpacity style={styles.batchDeleteBtn} onPress={handleBatchDelete}>
+            <FontAwesome6 name="trash" size={14} color="#FFFFFF" />
+            <Text style={styles.batchDeleteText}>批量删除</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#2D3436',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerBtn: {
+    padding: 8,
+  },
+  cancelText: {
+    fontSize: 14,
+    color: '#636E72',
+  },
+  deleteBtn: {
+    padding: 8,
+  },
+  addBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#6C63FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    shadowColor: '#6C63FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#2D3436',
+  },
+  statLabel: {
+    fontSize: 11,
+    color: '#A0AEC0',
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#E2E8F0',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#2D3436',
+  },
+  subjectScroll: {
+    marginTop: 12,
+  },
+  subjectTabs: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  subjectTab: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  subjectTabActive: {
+    backgroundColor: '#6C63FF',
+  },
+  subjectTabText: {
+    fontSize: 13,
+    color: '#636E72',
+    fontWeight: '500',
+  },
+  subjectTabTextActive: {
+    color: '#FFFFFF',
+  },
+  statusFilterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginTop: 10,
+    gap: 8,
+  },
+  statusChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  statusChipActive: {
+    backgroundColor: '#EDE9FE',
+  },
+  statusChipText: {
+    fontSize: 12,
+    color: '#636E72',
+    fontWeight: '500',
+  },
+  statusChipTextActive: {
+    color: '#6C63FF',
+  },
+  practiceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F7FF',
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  practiceButtonText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6C63FF',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingTop: 60,
   },
-  header: {
-    paddingHorizontal: 24,
-    marginBottom: 16,
+  list: {
+    flex: 1,
+    marginTop: 12,
   },
-  pageTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#2D3436',
-  },
-  pageSubtitle: {
-    fontSize: 14,
-    color: '#636E72',
-    marginTop: 4,
-  },
-  shadowDark: {
-    shadowColor: '#D1D9E6',
-    shadowOffset: { width: 6, height: 6 },
-    shadowOpacity: 0.7,
-    shadowRadius: 8,
-    borderRadius: 24,
-    marginBottom: 16,
-    marginHorizontal: 24,
-    elevation: 6,
-    backgroundColor: '#F0F0F3',
-  },
-  shadowLight: {
-    shadowColor: '#FFFFFF',
-    shadowOffset: { width: -6, height: -6 },
-    shadowOpacity: 0.9,
-    shadowRadius: 8,
-    backgroundColor: '#F0F0F3',
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.5)',
-  },
-  summaryRow: {
-    flexDirection: 'row',
+  emptyContainer: {
     alignItems: 'center',
-    justifyContent: 'space-around',
-  },
-  summaryItem: {
-    alignItems: 'center',
-  },
-  summaryValue: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#6C63FF',
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: '#636E72',
-    marginTop: 4,
-    fontWeight: '500',
-  },
-  summaryDivider: {
-    width: 1,
-    height: 36,
-    backgroundColor: '#E8E8EB',
-  },
-  filterContainer: {
-    paddingHorizontal: 24,
-    gap: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  filterTab: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 9999,
-    backgroundColor: '#E8E8EB',
-  },
-  filterTabActive: {
-    backgroundColor: '#6C63FF',
-  },
-  filterTabText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#636E72',
-  },
-  filterTabTextActive: {
-    color: '#FFF',
-  },
-  questionCard: {},
-  questionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+    paddingTop: 60,
     gap: 8,
   },
-  subjectDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  questionSubject: {
-    fontSize: 12,
+  emptyText: {
+    fontSize: 16,
     fontWeight: '600',
-    color: '#636E72',
-    flex: 1,
+    color: '#A0AEC0',
+    marginTop: 12,
   },
-  difficultyBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 9999,
+  emptySubText: {
+    fontSize: 13,
+    color: '#CBD5E0',
   },
-  difficultyBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
+  card: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 14,
+    padding: 14,
+    shadowColor: '#6C63FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  solvedBadge: {
+  cardSelected: {
+    borderWidth: 2,
+    borderColor: '#6C63FF',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  cardHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(0,184,148,0.10)',
+    flex: 1,
+    gap: 8,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: '#6C63FF',
+    borderColor: '#6C63FF',
+  },
+  subjectBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 9999,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
-  solvedBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#00B894',
+  subjectBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
-  questionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: '600',
     color: '#2D3436',
-    marginBottom: 4,
+    flex: 1,
   },
-  questionPreview: {
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  questionText: {
     fontSize: 13,
     color: '#636E72',
     lineHeight: 18,
     marginBottom: 10,
   },
-  questionFooter: {
+  cardFooter: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  cardMeta: {
+    flexDirection: 'row',
     gap: 12,
   },
-  questionMetaItem: {
+  metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  questionMetaText: {
+  metaText: {
+    fontSize: 11,
+    color: '#A0AEC0',
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  tag: {
+    backgroundColor: '#F0F0F3',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  tagText: {
     fontSize: 11,
     color: '#636E72',
   },
-  questionDate: {
-    fontSize: 11,
-    color: '#B2BEC3',
-    marginLeft: 'auto',
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F3',
+    gap: 12,
+  },
+  quickActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  quickActionText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  batchFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  batchFooterText: {
+    fontSize: 14,
+    color: '#636E72',
+  },
+  batchDeleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  batchDeleteText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#FFFFFF',
   },
 });

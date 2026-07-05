@@ -28,6 +28,8 @@ export default function RootLayout() {
         <Stack.Screen name="camera" options={{ gestureEnabled: false, animation: 'fade' }} />
         <Stack.Screen name="search-result" />
         <Stack.Screen name="favorites" />
+        <Stack.Screen name="question-edit" />
+        <Stack.Screen name="practice" />
       </Stack>
       <Toast />
     </Provider>
