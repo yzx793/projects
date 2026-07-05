@@ -164,42 +164,27 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Stats Cards */}
-        <View style={styles.statsGrid}>
-          <View style={styles.shadowDark}>
-            <View style={[styles.shadowLight, styles.statsCard]}>
-              <View style={[styles.statsIconContainer, { backgroundColor: 'rgba(108,99,255,0.12)' }]}>
-                <FontAwesome6 name="bullseye" size={20} color="#6C63FF" />
-              </View>
-              <Text style={styles.statsValue}>{stats.accuracyRate}%</Text>
-              <Text style={styles.statsLabel}>正确率</Text>
+        {/* Stats Row - Compact */}
+        <View style={styles.shadowDark}>
+          <View style={[styles.shadowLight, styles.statsRowContainer]}>
+            <View style={styles.statsRowItem}>
+              <Text style={styles.statsRowValue}>{stats.accuracyRate}%</Text>
+              <Text style={styles.statsRowLabel}>正确率</Text>
             </View>
-          </View>
-          <View style={styles.shadowDark}>
-            <View style={[styles.shadowLight, styles.statsCard]}>
-              <View style={[styles.statsIconContainer, { backgroundColor: 'rgba(255,101,132,0.12)' }]}>
-                <FontAwesome6 name="fire" size={20} color="#FF6584" />
-              </View>
-              <Text style={styles.statsValue}>{stats.streakDays}</Text>
-              <Text style={styles.statsLabel}>连续天数</Text>
+            <View style={styles.statsRowDivider} />
+            <View style={styles.statsRowItem}>
+              <Text style={styles.statsRowValue}>{stats.streakDays}</Text>
+              <Text style={styles.statsRowLabel}>连续天数</Text>
             </View>
-          </View>
-          <View style={styles.shadowDark}>
-            <View style={[styles.shadowLight, styles.statsCard]}>
-              <View style={[styles.statsIconContainer, { backgroundColor: 'rgba(0,184,148,0.12)' }]}>
-                <FontAwesome6 name="trophy" size={20} color="#00B894" />
-              </View>
-              <Text style={styles.statsValue}>#{stats.rankInClass}</Text>
-              <Text style={styles.statsLabel}>班级排名</Text>
+            <View style={styles.statsRowDivider} />
+            <View style={styles.statsRowItem}>
+              <Text style={styles.statsRowValue}>#{stats.rankInClass}</Text>
+              <Text style={styles.statsRowLabel}>班级排名</Text>
             </View>
-          </View>
-          <View style={styles.shadowDark}>
-            <View style={[styles.shadowLight, styles.statsCard]}>
-              <View style={[styles.statsIconContainer, { backgroundColor: 'rgba(9,132,227,0.12)' }]}>
-                <FontAwesome6 name="check-double" size={20} color="#0984E3" />
-              </View>
-              <Text style={styles.statsValue}>{stats.correctQuestions}</Text>
-              <Text style={styles.statsLabel}>答对题数</Text>
+            <View style={styles.statsRowDivider} />
+            <View style={styles.statsRowItem}>
+              <Text style={styles.statsRowValue}>{stats.correctQuestions}</Text>
+              <Text style={styles.statsRowLabel}>答对题数</Text>
             </View>
           </View>
         </View>
@@ -390,33 +375,31 @@ const styles = StyleSheet.create({
     color: '#636E72',
     fontWeight: '600',
   },
-  statsGrid: {
+  statsRowContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 24,
-    gap: 12,
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    marginHorizontal: 24,
     marginBottom: 8,
   },
-  statsCard: {
+  statsRowItem: {
+    flex: 1,
     alignItems: 'center',
-    padding: 16,
-    width: (width - 48 - 12) / 2,
-  },
-  statsIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
   },
-  statsValue: {
-    fontSize: 22,
+  statsRowDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: '#E8E8EB',
+  },
+  statsRowValue: {
+    fontSize: 18,
     fontWeight: '800',
     color: '#2D3436',
   },
-  statsLabel: {
-    fontSize: 12,
+  statsRowLabel: {
+    fontSize: 10,
     color: '#636E72',
     marginTop: 2,
   },
