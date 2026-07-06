@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { LLMClient, Config } from 'coze-coding-dev-sdk';
-import { wrongQuestions } from '../data/mockData.js';
+import { wrongQuestions ,poems} from '../data/mockData.js';
 
 const router = Router();
 

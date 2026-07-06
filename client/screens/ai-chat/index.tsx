@@ -1,3 +1,4 @@
+// d:\Download\project_20260706_203050\projects\client\screens\ai-chat\index.tsx
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
@@ -67,7 +68,9 @@ export default function AIChatScreen() {
       const reader = res.body?.getReader();
       if (!reader) return;
 
-      let aiResponse = '';
+      let aiResponseId = `ai-${Date.now()}`;
+      let accumulatedContent = '';
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -78,26 +81,43 @@ export default function AIChatScreen() {
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             const dataStr = line.slice(6);
-            if (dataStr === '[DONE]') break;
+            if (dataStr === '[DONE]') {
+              setMessages(prev => {
+                const updated = [...prev];
+                const aiIndex = updated.findIndex(m => m.id === aiResponseId);
+                if (aiIndex >= 0) {
+                  updated[aiIndex] = { ...updated[aiIndex], content: accumulatedContent };
+                } else {
+                  updated.push({
+                    id: aiResponseId,
+                    content: accumulatedContent,
+                    isUser: false,
+                    timestamp: new Date(),
+                  });
+                }
+                return updated;
+              });
+              break;
+            }
             
             try {
               const data = JSON.parse(dataStr);
               if (data.content) {
-                aiResponse += data.content;
+                accumulatedContent += data.content;
                 setMessages(prev => {
-                  const lastMsg = prev[prev.length - 1];
-                  if (lastMsg && !lastMsg.isUser) {
-                    return prev.slice(0, -1).concat({
-                      ...lastMsg,
-                      content: aiResponse,
+                  const updated = [...prev];
+                  const aiIndex = updated.findIndex(m => m.id === aiResponseId);
+                  if (aiIndex >= 0) {
+                    updated[aiIndex] = { ...updated[aiIndex], content: accumulatedContent };
+                  } else {
+                    updated.push({
+                      id: aiResponseId,
+                      content: accumulatedContent,
+                      isUser: false,
+                      timestamp: new Date(),
                     });
                   }
-                  return [...prev, {
-                    id: `ai-${Date.now()}`,
-                    content: aiResponse,
-                    isUser: false,
-                    timestamp: new Date(),
-                  }];
+                  return updated;
                 });
                 scrollToBottom();
               }
@@ -125,13 +145,13 @@ export default function AIChatScreen() {
     const welcomeMsg: ChatMessage = {
       id: `ai-${Date.now()}`,
       content: chatMode === 'chinese' 
-        ? '你好！我是诗词小助手。请说出诗句上句，我来接下句，或询问诗词详情~'
-        : 'Hello! I am your English learning assistant. Let\'s practice English together!',
+        ? '你好！我是诗词小助手~'
+        : 'Hello! I am your English assistant.',
       isUser: false,
       timestamp: new Date(),
     };
     setMessages([welcomeMsg]);
-  }, []);
+  }, [chatMode]); // 添加 chatMode 依赖
 
   return (
     <Screen safeAreaEdges={['left', 'right', 'bottom']} backgroundColor="#F0F0F3">
@@ -248,6 +268,8 @@ const styles = StyleSheet.create({
   messageContainer: {
     marginBottom: 16,
     maxWidth: '85%',
+    flexShrink: 1, 
+    flexWrap: 'wrap', 
   },
   userMessage: {
     alignSelf: 'flex-end',
@@ -261,16 +283,17 @@ const styles = StyleSheet.create({
     padding: 12,
     maxWidth: '100%',
   },
-  aiBubble: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 12,
-    maxWidth: '100%',
-    shadowColor: '#D1D9E6',
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
+aiBubble: {
+  backgroundColor: '#FFFFFF',
+  borderRadius: 16,
+  padding: 14,
+  maxWidth: '100%',
+  minWidth: '50%', // 添加最小宽度
+  shadowColor: '#D1D9E6',
+  shadowOffset: { width: 2, height: 2 },
+  shadowOpacity: 0.3,
+  shadowRadius: 4,
+},
   userMessageText: {
     fontSize: 14,
     color: '#FFF',
@@ -279,7 +302,10 @@ const styles = StyleSheet.create({
   aiMessageText: {
     fontSize: 14,
     color: '#2D3436',
-    lineHeight: 1.6,
+     lineHeight: 1.8, // 增加行高
+     flexWrap: 'wrap',
+     wordBreak: 'break-word'
+    
   },
   loadingContainer: {
     alignItems: 'center',

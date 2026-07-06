@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useRef } from 'react';
+// d:\Download\project_20260706_203050\projects\client\screens\search-result\index.tsx
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,245 +7,96 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
-  Modal,
 } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
 import { useFocusEffect } from 'expo-router';
-import EventSource from 'react-native-sse';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
 
-// Subject color mapping
-const subjectColors: Record<string, string> = {
-  math: '#6C63FF',
-  chinese: '#E17055',
-  english: '#00B894',
-  physics: '#0984E3',
-  chemistry: '#FDCB6E',
-};
-
-interface Question {
+interface Poem {
   id: number;
   title: string;
-  subject: string;
-  subjectName: string;
-  type: string;
-  difficulty: number;
-  content: string;
-  answer: string;
-  analysis: string;
-  knowledgePoints: string[];
-  source: string;
-  matchScore?: number;
+  author: string;
+  dynasty: string;
+  content: string[];
+  translation: string[];
+  explanation: string;
+  tags: string[];
+}
+
+interface EnglishWord {
+  id: number;
+  word: string;
+  phonetic: string;
+  translation: string;
+  partOfSpeech: string;
+  example: string;
+  conjugation?: {
+    verb?: {
+      present: string;
+      past: string;
+      pastParticiple: string;
+      ing: string;
+    };
+    adjective?: {
+      comparative: string;
+      superlative: string;
+    };
+  };
+  explanation: string;
 }
 
 export default function SearchResultScreen() {
   const router = useSafeRouter();
-  const { questionIds } = useSafeSearchParams<{ questionIds: string }>();
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const { keyword, subject } = useSafeSearchParams<{ keyword: string; subject: string }>();
   const [loading, setLoading] = useState(true);
+  const [poems, setPoems] = useState<Poem[]>([]);
+  const [words, setWords] = useState<EnglishWord[]>([]);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [savedIds, setSavedIds] = useState<Set<number>>(new Set());
-  const [favoritedIds, setFavoritedIds] = useState<Set<number>>(new Set());
-  
-  // AI Analysis state
-  const [aiModalVisible, setAiModalVisible] = useState(false);
-  const [aiAnalyzing, setAiAnalyzing] = useState(false);
-  const [aiContent, setAiContent] = useState('');
-  const [aiQuestionTitle, setAiQuestionTitle] = useState('');
-  const sseRef = useRef<EventSource | null>(null);
 
-  const fetchQuestions = useCallback(async () => {
-    if (!questionIds) return;
-    
+  const fetchResults = useCallback(async () => {
+    if (!keyword || !subject) return;
+
     try {
-      const ids = questionIds.split(',');
-      const results: Question[] = [];
-      
-      for (const id of ids) {
-        /**
-         * 服务端文件：server/src/routes/search.ts
-         * 接口：GET /api/v1/search/question/:id
-         * Path 参数: id: number
-         */
-        const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/search/question/${id}`);
+      let url = '';
+      if (subject === 'chinese') {
+        url = `${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/search/poem?keyword=${encodeURIComponent(keyword)}`;
+      } else if (subject === 'english') {
+        url = `${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/search/word?keyword=${encodeURIComponent(keyword)}`;
+      }
+
+      if (url) {
+        const res = await fetch(url);
         const json = await res.json();
         if (json.code === 0) {
-          results.push(json.data);
+          if (subject === 'chinese') {
+            setPoems(json.data);
+          } else {
+            setWords(json.data);
+          }
         }
       }
-      
-      setQuestions(results);
     } catch (error) {
-      console.error('Fetch questions error:', error);
+      console.error('Search error:', error);
     } finally {
       setLoading(false);
     }
-  }, [questionIds]);
+  }, [keyword, subject]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchQuestions();
-    }, [fetchQuestions])
+      fetchResults();
+    }, [fetchResults])
   );
-
-  // Cleanup SSE on unmount
-  useFocusEffect(
-    useCallback(() => {
-      return () => {
-        if (sseRef.current) {
-          sseRef.current.close();
-        }
-      };
-    }, [])
-  );
-
-  const handleSaveToWrongQuestions = useCallback(async (question: Question) => {
-    try {
-      /**
-       * 服务端文件：server/src/routes/wrongQuestions.ts
-       * 接口：POST /api/v1/wrong-questions
-       * Body: { title: string, subject: string, subjectName: string, type: string, difficulty: number, content: string, answer: string, analysis: string, knowledgePoints: string[], source: string }
-       */
-      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/wrong-questions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: question.title,
-          subject: question.subject,
-          subjectName: question.subjectName,
-          type: question.type,
-          difficulty: question.difficulty,
-          content: question.content,
-          answer: question.answer,
-          analysis: question.analysis,
-          knowledgePoints: question.knowledgePoints,
-          source: '拍照搜题',
-        }),
-      });
-
-      const json = await res.json();
-      if (json.code === 0) {
-        setSavedIds(prev => new Set(prev).add(question.id));
-        Alert.alert('成功', '已保存到错题本');
-      }
-    } catch (error) {
-      console.error('Save to wrong questions error:', error);
-      Alert.alert('错误', '保存失败，请重试');
-    }
-  }, []);
-
-  const handleAddToFavorites = useCallback(async (question: Question) => {
-    try {
-      /**
-       * 服务端文件：server/src/routes/favorites.ts
-       * 接口：POST /api/v1/favorites
-       * Body: { questionId: number, title: string, subject: string, subjectName: string, type: string, difficulty: number, content: string, answer: string, analysis: string, knowledgePoints: string[], source: string }
-       */
-      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/favorites`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          questionId: question.id,
-          title: question.title,
-          subject: question.subject,
-          subjectName: question.subjectName,
-          type: question.type,
-          difficulty: question.difficulty,
-          content: question.content,
-          answer: question.answer,
-          analysis: question.analysis,
-          knowledgePoints: question.knowledgePoints,
-          source: '拍照搜题',
-        }),
-      });
-
-      const json = await res.json();
-      if (json.code === 0) {
-        setFavoritedIds(prev => new Set(prev).add(question.id));
-        Alert.alert('成功', '已添加到收藏');
-      }
-    } catch (error) {
-      console.error('Add to favorites error:', error);
-      Alert.alert('错误', '收藏失败，请重试');
-    }
-  }, []);
-
-  // AI Analysis handler
-  const handleAIAnalyze = useCallback((question: Question) => {
-    setAiQuestionTitle(question.title);
-    setAiContent('');
-    setAiAnalyzing(true);
-    setAiModalVisible(true);
-
-    // Close previous SSE connection if exists
-    if (sseRef.current) {
-      sseRef.current.close();
-    }
-
-    /**
-     * 服务端文件：server/src/routes/ai.ts
-     * 接口：POST /api/v1/ai/analyze (SSE)
-     * Body: { questionId: number }
-     */
-    const url = `${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/ai/analyze`;
-    
-    const es = new EventSource(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ questionId: question.id }),
-      pollingInterval: 0,
-    });
-
-    sseRef.current = es;
-
-    es.addEventListener('message', (event) => {
-      if (event.data === '[DONE]') {
-        setAiAnalyzing(false);
-        es.close();
-        return;
-      }
-      try {
-        const data = JSON.parse(event.data || '{}');
-        if (data.content) {
-          setAiContent(prev => prev + data.content);
-        }
-        if (data.error) {
-          Alert.alert('错误', data.error);
-          setAiAnalyzing(false);
-        }
-      } catch (e) {
-        console.error('Parse SSE data error:', e);
-      }
-    });
-
-    es.addEventListener('error', (event) => {
-      console.error('SSE error:', event);
-      setAiAnalyzing(false);
-      Alert.alert('错误', 'AI分析连接失败，请重试');
-    });
-  }, []);
-
-  const handleCloseAiModal = useCallback(() => {
-    if (sseRef.current) {
-      sseRef.current.close();
-    }
-    setAiModalVisible(false);
-    setAiAnalyzing(false);
-    setAiContent('');
-  }, []);
 
   if (loading) {
     return (
       <Screen>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#6C63FF" />
-          <Text style={styles.loadingText}>正在加载搜索结果...</Text>
+          <Text style={styles.loadingText}>正在搜索...</Text>
         </View>
       </Screen>
     );
@@ -269,121 +121,62 @@ export default function SearchResultScreen() {
         {/* Results Summary */}
         <View style={styles.summaryCard}>
           <FontAwesome6 name="magnifying-glass" size={20} color="#6C63FF" />
-          <Text style={styles.summaryText}>找到 {questions.length} 道相关题目</Text>
+          <Text style={styles.summaryText}>
+            找到 {subject === 'chinese' ? poems.length : words.length} 个相关结果
+          </Text>
         </View>
 
-        {/* Question List */}
-        {questions.map((question) => {
-          const isExpanded = expandedId === question.id;
-          const isSaved = savedIds.has(question.id);
-          const isFavorited = favoritedIds.has(question.id);
-          const color = subjectColors[question.subject] || '#6C63FF';
-
+        {/* Chinese Poem Results */}
+        {subject === 'chinese' && poems.map((poem) => {
+          const isExpanded = expandedId === poem.id;
           return (
-            <View key={question.id} style={styles.shadowDark}>
+            <View key={poem.id} style={styles.shadowDark}>
               <View style={styles.shadowLight}>
-                <View style={styles.questionCard}>
-                  {/* Question Header */}
+                <View style={styles.card}>
                   <TouchableOpacity
-                    style={styles.questionHeader}
-                    onPress={() => setExpandedId(isExpanded ? null : question.id)}
+                    style={styles.cardHeader}
+                    onPress={() => setExpandedId(isExpanded ? null : poem.id)}
                   >
-                    <View style={[styles.subjectBadge, { backgroundColor: `${color}20` }]}>
-                      <Text style={[styles.subjectBadgeText, { color }]}>{question.subjectName}</Text>
+                    <View style={styles.chineseBadge}>
+                      <Text style={styles.chineseBadgeText}>诗词</Text>
                     </View>
-                    <View style={styles.questionTitleRow}>
-                      <Text style={styles.questionTitle} numberOfLines={2}>
-                        {question.title}
-                      </Text>
-                      <FontAwesome6
-                        name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                        size={14}
-                        color="#B2BEC3"
-                      />
+                    <View style={styles.cardInfo}>
+                      <Text style={styles.cardTitle}>{poem.title}</Text>
+                      <Text style={styles.cardAuthor}>{poem.dynasty} · {poem.author}</Text>
                     </View>
-                    <View style={styles.metaRow}>
-                      <Text style={styles.metaText}>
-                        {'★'.repeat(question.difficulty)}{'☆'.repeat(5 - question.difficulty)}
-                      </Text>
-                      <Text style={styles.metaText}>
-                        {question.type === 'choice' ? '选择题' : '填空题'}
-                      </Text>
-                    </View>
+                    <FontAwesome6
+                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color="#B2BEC3"
+                    />
                   </TouchableOpacity>
 
-                  {/* Expanded Content */}
                   {isExpanded && (
                     <View style={styles.expandedContent}>
-                      <View style={styles.contentSection}>
-                        <Text style={styles.sectionLabel}>题目内容</Text>
-                        <Text style={styles.contentText}>{question.content}</Text>
+                      <View style={styles.poemContent}>
+                        {poem.content.map((line, idx) => (
+                          <Text key={idx} style={styles.poemLine}>{line}</Text>
+                        ))}
                       </View>
-
-                      <View style={styles.contentSection}>
-                        <Text style={styles.sectionLabel}>参考答案</Text>
-                        <Text style={styles.answerText}>{question.answer}</Text>
-                      </View>
-
-                      <View style={styles.contentSection}>
-                        <Text style={styles.sectionLabel}>解析</Text>
-                        <Text style={styles.analysisText}>{question.analysis}</Text>
-                      </View>
-
-                      <View style={styles.contentSection}>
-                        <Text style={styles.sectionLabel}>知识点</Text>
-                        <View style={styles.tagsRow}>
-                          {question.knowledgePoints.map((kp, idx) => (
-                            <View key={idx} style={styles.tag}>
-                              <Text style={styles.tagText}>{kp}</Text>
-                            </View>
+                      <View style={styles.section}>
+                        <Text style={styles.sectionLabel}>译文</Text>
+                        <View style={styles.translationContent}>
+                          {poem.translation.map((line, idx) => (
+                            <Text key={idx} style={styles.translationLine}>{line}</Text>
                           ))}
                         </View>
                       </View>
-
-                      {/* Action Buttons */}
-                      <View style={styles.actionRow}>
-                        <TouchableOpacity
-                          style={[styles.actionBtn, isSaved && styles.actionBtnSaved]}
-                          onPress={() => !isSaved && handleSaveToWrongQuestions(question)}
-                          disabled={isSaved}
-                        >
-                          <FontAwesome6
-                            name={isSaved ? 'circle-check' : 'circle-xmark'}
-                            size={18}
-                            color={isSaved ? '#00B894' : '#FF6584'}
-                          />
-                          <Text style={[styles.actionBtnText, isSaved && styles.actionBtnTextSaved]}>
-                            {isSaved ? '已保存' : '加入错题本'}
-                          </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[styles.actionBtn, isFavorited && styles.actionBtnFavorited]}
-                          onPress={() => !isFavorited && handleAddToFavorites(question)}
-                          disabled={isFavorited}
-                        >
-                          <FontAwesome6
-                            name={isFavorited ? 'star' : 'star'}
-                            size={18}
-                            color={isFavorited ? '#FDCB6E' : '#636E72'}
-                          />
-                          <Text style={[styles.actionBtnText, isFavorited && styles.actionBtnTextFavorited]}>
-                            {isFavorited ? '已收藏' : '收藏'}
-                          </Text>
-                        </TouchableOpacity>
+                      <View style={styles.section}>
+                        <Text style={styles.sectionLabel}>赏析</Text>
+                        <Text style={styles.explanationText}>{poem.explanation}</Text>
                       </View>
-
-                      {/* AI Analysis Button */}
-                      <TouchableOpacity
-                        style={styles.aiAnalyzeBtn}
-                        onPress={() => handleAIAnalyze(question)}
-                      >
-                        <View style={styles.aiIconContainer}>
-                          <FontAwesome6 name="wand-magic-sparkles" size={18} color="#6C63FF" />
-                        </View>
-                        <Text style={styles.aiAnalyzeBtnText}>AI 智能讲解</Text>
-                        <FontAwesome6 name="arrow-right" size={14} color="#6C63FF" />
-                      </TouchableOpacity>
+                      <View style={styles.tagsRow}>
+                        {poem.tags.map((tag, idx) => (
+                          <View key={idx} style={styles.tag}>
+                            <Text style={styles.tagText}>{tag}</Text>
+                          </View>
+                        ))}
+                      </View>
                     </View>
                   )}
                 </View>
@@ -392,73 +185,97 @@ export default function SearchResultScreen() {
           );
         })}
 
-        {/* Bottom Actions */}
-        <View style={styles.bottomActions}>
-          <TouchableOpacity
-            style={styles.continueSearchBtn}
-            onPress={() => router.replace('/camera')}
-          >
-            <FontAwesome6 name="camera" size={18} color="#6C63FF" />
-            <Text style={styles.continueSearchText}>继续拍照搜题</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+        {/* English Word Results */}
+        {subject === 'english' && words.map((word) => {
+          const isExpanded = expandedId === word.id;
+          return (
+            <View key={word.id} style={styles.shadowDark}>
+              <View style={styles.shadowLight}>
+                <View style={styles.card}>
+                  <TouchableOpacity
+                    style={styles.cardHeader}
+                    onPress={() => setExpandedId(isExpanded ? null : word.id)}
+                  >
+                    <View style={styles.englishBadge}>
+                      <Text style={styles.englishBadgeText}>单词</Text>
+                    </View>
+                    <View style={styles.cardInfo}>
+                      <Text style={styles.wordTitle}>{word.word}</Text>
+                      <Text style={styles.wordPhonetic}>{word.phonetic} · {word.partOfSpeech}</Text>
+                    </View>
+                    <FontAwesome6
+                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color="#B2BEC3"
+                    />
+                  </TouchableOpacity>
 
-      {/* AI Analysis Modal */}
-      <Modal
-        visible={aiModalVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={handleCloseAiModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <View style={styles.modalTitleRow}>
-                <View style={styles.aiModalIcon}>
-                  <FontAwesome6 name="wand-magic-sparkles" size={20} color="#6C63FF" />
-                </View>
-                <View>
-                  <Text style={styles.modalTitle}>AI 智能讲解</Text>
-                  <Text style={styles.modalSubtitle} numberOfLines={1}>{aiQuestionTitle}</Text>
+                  {isExpanded && (
+                    <View style={styles.expandedContent}>
+                      <View style={styles.section}>
+                        <Text style={styles.sectionLabel}>释义</Text>
+                        <Text style={styles.translationText}>{word.translation}</Text>
+                      </View>
+                      <View style={styles.section}>
+                        <Text style={styles.sectionLabel}>例句</Text>
+                        <Text style={styles.exampleText}>"{word.example}"</Text>
+                      </View>
+                      <View style={styles.section}>
+                        <Text style={styles.sectionLabel}>讲解</Text>
+                        <Text style={styles.explanationText}>{word.explanation}</Text>
+                      </View>
+                      {word.conjugation && (
+                        <View style={styles.section}>
+                          <Text style={styles.sectionLabel}>词形变化</Text>
+                          <View style={styles.conjugationRow}>
+                            {word.conjugation.verb && (
+                              <View style={styles.conjugationGroup}>
+                                <Text style={styles.conjugationLabel}>动词</Text>
+                                <Text style={styles.conjugationText}>
+                                  现在时: {word.conjugation.verb.present}
+                                </Text>
+                                <Text style={styles.conjugationText}>
+                                  过去时: {word.conjugation.verb.past}
+                                </Text>
+                                <Text style={styles.conjugationText}>
+                                  过去分词: {word.conjugation.verb.pastParticiple}
+                                </Text>
+                                <Text style={styles.conjugationText}>
+                                  进行时: {word.conjugation.verb.ing}
+                                </Text>
+                              </View>
+                            )}
+                            {word.conjugation.adjective && (
+                              <View style={styles.conjugationGroup}>
+                                <Text style={styles.conjugationLabel}>形容词</Text>
+                                <Text style={styles.conjugationText}>
+                                  比较级: {word.conjugation.adjective.comparative}
+                                </Text>
+                                <Text style={styles.conjugationText}>
+                                  最高级: {word.conjugation.adjective.superlative}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  )}
                 </View>
               </View>
-              <TouchableOpacity onPress={handleCloseAiModal} style={styles.modalCloseBtn}>
-                <FontAwesome6 name="xmark" size={18} color="#636E72" />
-              </TouchableOpacity>
             </View>
+          );
+        })}
 
-            {/* Modal Content */}
-            <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
-              {aiContent ? (
-                <Text style={styles.aiContentText}>{aiContent}</Text>
-              ) : (
-                <View style={styles.aiLoadingContainer}>
-                  <ActivityIndicator size="large" color="#6C63FF" />
-                  <Text style={styles.aiLoadingText}>AI 正在分析题目...</Text>
-                  <Text style={styles.aiLoadingSubtext}>请稍候，正在生成详细讲解</Text>
-                </View>
-              )}
-              {aiAnalyzing && aiContent && (
-                <View style={styles.aiTypingIndicator}>
-                  <ActivityIndicator size="small" color="#6C63FF" />
-                  <Text style={styles.aiTypingText}>正在生成...</Text>
-                </View>
-              )}
-            </ScrollView>
-
-            {/* Modal Footer */}
-            {!aiAnalyzing && aiContent ? (
-              <View style={styles.modalFooter}>
-                <TouchableOpacity style={styles.modalDoneBtn} onPress={handleCloseAiModal}>
-                  <Text style={styles.modalDoneBtnText}>完成</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
+        {/* Empty State */}
+        {(!poems.length && subject === 'chinese') || (!words.length && subject === 'english') ? (
+          <View style={styles.emptyState}>
+            <FontAwesome6 name="search" size={48} color="#B2BEC3" />
+            <Text style={styles.emptyText}>未找到相关{subject === 'chinese' ? '诗词' : '单词'}</Text>
+            <Text style={styles.emptySubtext}>请尝试其他关键词</Text>
           </View>
-        </View>
-      </Modal>
+        ) : null}
+      </ScrollView>
     </Screen>
   );
 }
@@ -530,41 +347,56 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.9,
     shadowRadius: 8,
   },
-  questionCard: {
+  card: {
     padding: 16,
   },
-  questionHeader: {
-    gap: 8,
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  subjectBadge: {
-    alignSelf: 'flex-start',
+  chineseBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+    backgroundColor: 'rgba(225,112,85,0.1)',
   },
-  subjectBadgeText: {
+  chineseBadgeText: {
     fontSize: 12,
     fontWeight: '600',
+    color: '#E17055',
   },
-  questionTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 12,
+  englishBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,184,148,0.1)',
   },
-  questionTitle: {
+  englishBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#00B894',
+  },
+  cardInfo: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
+    gap: 4,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
     color: '#2D3436',
-    lineHeight: 22,
   },
-  metaRow: {
-    flexDirection: 'row',
-    gap: 12,
+  cardAuthor: {
+    fontSize: 13,
+    color: '#636E72',
   },
-  metaText: {
-    fontSize: 12,
+  wordTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#2D3436',
+  },
+  wordPhonetic: {
+    fontSize: 13,
     color: '#636E72',
   },
   expandedContent: {
@@ -574,7 +406,19 @@ const styles = StyleSheet.create({
     borderTopColor: '#F0F0F3',
     gap: 16,
   },
-  contentSection: {
+  poemContent: {
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: 'rgba(225,112,85,0.05)',
+    borderRadius: 12,
+  },
+  poemLine: {
+    fontSize: 16,
+    color: '#2D3436',
+    lineHeight: 32,
+    fontFamily: 'serif',
+  },
+  section: {
     gap: 6,
   },
   sectionLabel: {
@@ -582,18 +426,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#6C63FF',
   },
-  contentText: {
+  translationContent: {
+    gap: 8,
+  },
+  translationLine: {
+    fontSize: 14,
+    color: '#636E72',
+    lineHeight: 22,
+  },
+  translationText: {
     fontSize: 14,
     color: '#2D3436',
-    lineHeight: 22,
-  },
-  answerText: {
-    fontSize: 14,
-    color: '#00B894',
     fontWeight: '500',
-    lineHeight: 22,
   },
-  analysisText: {
+  exampleText: {
+    fontSize: 14,
+    color: '#636E72',
+    fontStyle: 'italic',
+  },
+  explanationText: {
     fontSize: 14,
     color: '#636E72',
     lineHeight: 22,
@@ -613,195 +464,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#636E72',
   },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
+  conjugationRow: {
+    gap: 16,
   },
-  actionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: '#F0F0F3',
+  conjugationGroup: {
+    gap: 4,
   },
-  actionBtnSaved: {
-    backgroundColor: 'rgba(0,184,148,0.1)',
-  },
-  actionBtnFavorited: {
-    backgroundColor: 'rgba(253,203,110,0.15)',
-  },
-  actionBtnText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#2D3436',
-  },
-  actionBtnTextSaved: {
-    color: '#00B894',
-  },
-  actionBtnTextFavorited: {
-    color: '#B8860B',
-  },
-  // AI Analysis Button
-  aiAnalyzeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 14,
-    marginTop: 8,
-    borderRadius: 14,
-    backgroundColor: 'rgba(108,99,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(108,99,255,0.2)',
-  },
-  aiIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(108,99,255,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  aiAnalyzeBtnText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#6C63FF',
-  },
-  bottomActions: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-  },
-  continueSearchBtn: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 16,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#B2BEC3',
-    shadowOffset: { width: 4, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-  },
-  continueSearchText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#6C63FF',
-  },
-  // AI Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '85%',
-    paddingBottom: 34,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F3',
-  },
-  modalTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  aiModalIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(108,99,255,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#2D3436',
-  },
-  modalSubtitle: {
+  conjugationLabel: {
     fontSize: 13,
-    color: '#636E72',
-    marginTop: 2,
-  },
-  modalCloseBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F0F0F3',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    minHeight: 300,
-  },
-  aiContentText: {
-    fontSize: 15,
-    color: '#2D3436',
-    lineHeight: 26,
-  },
-  aiLoadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  aiLoadingText: {
-    marginTop: 16,
-    fontSize: 16,
     fontWeight: '600',
     color: '#2D3436',
   },
-  aiLoadingSubtext: {
-    marginTop: 8,
+  conjugationText: {
     fontSize: 13,
     color: '#636E72',
   },
-  aiTypingIndicator: {
-    flexDirection: 'row',
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 16,
+    paddingVertical: 80,
+    gap: 12,
   },
-  aiTypingText: {
-    fontSize: 13,
-    color: '#6C63FF',
-  },
-  modalFooter: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F3',
-  },
-  modalDoneBtn: {
-    backgroundColor: '#6C63FF',
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  modalDoneBtnText: {
+  emptyText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#636E72',
+  },
+  emptySubtext: {
+    fontSize: 13,
+    color: '#B2BEC3',
   },
 });

@@ -133,51 +133,51 @@ export default function CoursesScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.subjectTabsContainer}
           >
-          <TouchableOpacity
-            style={[
-              styles.subjectTab,
-              activeSubject === 'all' && styles.subjectTabActive,
-            ]}
-            onPress={() => handleSubjectChange('all')}
-          >
-            <FontAwesome6
-              name="table-cells-large"
-              size={16}
-              color={activeSubject === 'all' ? '#FFF' : '#636E72'}
-            />
-            <Text
-              style={[
-                styles.subjectTabText,
-                activeSubject === 'all' && styles.subjectTabTextActive,
-              ]}
-            >
-              全部
-            </Text>
-          </TouchableOpacity>
-          {subjects.map((s) => (
             <TouchableOpacity
-              key={s.id}
               style={[
                 styles.subjectTab,
-                activeSubject === s.id && { backgroundColor: s.color },
+                activeSubject === 'all' && styles.subjectTabActive,
               ]}
-              onPress={() => handleSubjectChange(s.id)}
+              onPress={() => handleSubjectChange('all')}
             >
               <FontAwesome6
-                name={s.icon as any}
+                name="table-cells-large"
                 size={16}
-                color={activeSubject === s.id ? '#FFF' : s.color}
+                color={activeSubject === 'all' ? '#FFF' : '#636E72'}
               />
               <Text
                 style={[
                   styles.subjectTabText,
-                  activeSubject === s.id && styles.subjectTabTextActive,
+                  activeSubject === 'all' && styles.subjectTabTextActive,
                 ]}
               >
-                {s.name}
+                全部
               </Text>
             </TouchableOpacity>
-          ))}
+            {subjects.map((s) => (
+              <TouchableOpacity
+                key={s.id}
+                style={[
+                  styles.subjectTab,
+                  activeSubject === s.id && { backgroundColor: s.color },
+                ]}
+                onPress={() => handleSubjectChange(s.id)}
+              >
+                <FontAwesome6
+                  name={s.icon as any}
+                  size={16}
+                  color={activeSubject === s.id ? '#FFF' : s.color}
+                />
+                <Text
+                  style={[
+                    styles.subjectTabText,
+                    activeSubject === s.id && styles.subjectTabTextActive,
+                  ]}
+                >
+                  {s.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
         </View>
 
@@ -218,79 +218,105 @@ export default function CoursesScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Course List */}
-        <View style={styles.courseListContainer}>
-          {courses.map((course) => (
-            <TouchableOpacity
-              key={course.id}
-              activeOpacity={0.8}
-              onPress={() => router.push('/course-detail', { courseId: course.id })}
-            >
-              <View style={styles.shadowDark}>
-                <View style={styles.shadowLight}>
-                  <View style={styles.courseCard}>
-                    <Image
-                      source={{ uri: course.thumbnail }}
-                      style={styles.courseThumbnail}
-                      contentFit="cover"
-                    />
-                    <View style={styles.courseInfo}>
-                      <View style={styles.courseTopRow}>
-                        <View
-                          style={[
-                            styles.difficultyTag,
-                            { backgroundColor: `${difficultyColors[course.difficulty]}18` },
-                          ]}
-                        >
-                          <Text
+        {/* Search Guide for Chinese/English */}
+        {(activeSubject === 'chinese' || activeSubject === 'english') && (
+          <View style={styles.searchGuideContainer}>
+            <View style={[styles.searchGuideIcon, { backgroundColor: `${subjectColors[activeSubject]}15` }]}>
+              <FontAwesome6 name="search" size={32} color={subjectColors[activeSubject]} />
+            </View>
+            <Text style={styles.searchGuideTitle}>
+              {activeSubject === 'chinese' ? '古诗词学习' : '英语单词学习'}
+            </Text>
+            <Text style={styles.searchGuideDesc}>
+              {activeSubject === 'chinese' 
+                ? '在上方搜索框输入古诗词标题，即可查看原文、译文和赏析' 
+                : '在上方搜索框输入单词，即可查看释义、例句和词形变化'}
+            </Text>
+          </View>
+        )}
+
+        {/* Course List - only for Math, Physics, Chemistry and All */}
+        {(activeSubject !== 'chinese' && activeSubject !== 'english') && (
+          <View style={styles.courseListContainer}>
+            {courses.map((course) => (
+              <TouchableOpacity
+                key={course.id}
+                activeOpacity={0.8}
+                onPress={() => router.push('/course-detail', { courseId: course.id })}
+              >
+                <View style={styles.shadowDark}>
+                  <View style={styles.shadowLight}>
+                    <View style={styles.courseCard}>
+                      <Image
+                        source={{ uri: course.thumbnail }}
+                        style={styles.courseThumbnail}
+                        contentFit="cover"
+                      />
+                      <View style={styles.courseInfo}>
+                        <View style={styles.courseTopRow}>
+                          <View
                             style={[
-                              styles.difficultyTagText,
-                              { color: difficultyColors[course.difficulty] },
+                              styles.difficultyTag,
+                              { backgroundColor: `${difficultyColors[course.difficulty]}18` },
                             ]}
                           >
-                            {difficultyLabels[course.difficulty]}
-                          </Text>
+                            <Text
+                              style={[
+                                styles.difficultyTagText,
+                                { color: difficultyColors[course.difficulty] },
+                              ]}
+                            >
+                              {difficultyLabels[course.difficulty]}
+                            </Text>
+                          </View>
+                          <View style={[styles.subjectBadge, { backgroundColor: `${subjectColors[course.subject]}18` }]}>
+                            <Text style={[styles.subjectBadgeText, { color: subjectColors[course.subject] }]}>
+                              {course.subjectName}
+                            </Text>
+                          </View>
                         </View>
-                        <View style={[styles.subjectBadge, { backgroundColor: `${subjectColors[course.subject]}18` }]}>
-                          <Text style={[styles.subjectBadgeText, { color: subjectColors[course.subject] }]}>
-                            {course.subjectName}
-                          </Text>
+                        <Text style={styles.courseTitle} numberOfLines={2}>{course.title}</Text>
+                        <Text style={styles.courseTeacher}>{course.teacher}</Text>
+                        <View style={styles.courseBottomRow}>
+                          <View style={styles.courseMetaItem}>
+                            <FontAwesome6 name="circle-play" size={12} color="#636E72" />
+                            <Text style={styles.courseMetaText}>{course.lessons} 课时</Text>
+                          </View>
+                          <View style={styles.courseMetaItem}>
+                            <FontAwesome6 name="clock" size={12} color="#636E72" />
+                            <Text style={styles.courseMetaText}>{course.duration} 分钟</Text>
+                          </View>
+                          <View style={styles.courseMetaItem}>
+                            <FontAwesome6 name="circle-check" size={12} color="#00B894" />
+                            <Text style={styles.courseMetaText}>{course.completedLessons}/{course.lessons}</Text>
+                          </View>
                         </View>
-                      </View>
-                      <Text style={styles.courseTitle} numberOfLines={2}>{course.title}</Text>
-                      <Text style={styles.courseTeacher}>{course.teacher}</Text>
-                      <View style={styles.courseBottomRow}>
-                        <View style={styles.courseMetaItem}>
-                          <FontAwesome6 name="circle-play" size={12} color="#636E72" />
-                          <Text style={styles.courseMetaText}>{course.lessons} 课时</Text>
+                        <View style={styles.courseProgressBg}>
+                          <View
+                            style={[
+                              styles.courseProgressFill,
+                              {
+                                width: `${(course.completedLessons / course.lessons) * 100}%` as any,
+                                backgroundColor: subjectColors[course.subject],
+                              },
+                            ]}
+                          />
                         </View>
-                        <View style={styles.courseMetaItem}>
-                          <FontAwesome6 name="clock" size={12} color="#636E72" />
-                          <Text style={styles.courseMetaText}>{course.duration} 分钟</Text>
-                        </View>
-                        <View style={styles.courseMetaItem}>
-                          <FontAwesome6 name="circle-check" size={12} color="#00B894" />
-                          <Text style={styles.courseMetaText}>{course.completedLessons}/{course.lessons}</Text>
-                        </View>
-                      </View>
-                      <View style={styles.courseProgressBg}>
-                        <View
-                          style={[
-                            styles.courseProgressFill,
-                            {
-                              width: `${(course.completedLessons / course.lessons) * 100}%` as any,
-                              backgroundColor: subjectColors[course.subject],
-                            },
-                          ]}
-                        />
                       </View>
                     </View>
                   </View>
                 </View>
+              </TouchableOpacity>
+            ))}
+            {courses.length === 0 && (
+              <View style={styles.emptyCourseList}>
+                <FontAwesome6 name="book-open" size={48} color="#B2BEC3" />
+                <Text style={styles.emptyCourseText}>暂无课程</Text>
+                <Text style={styles.emptyCourseSubtext}>{activeSubject === 'math' ? '请先上传课程' : '敬请期待'}</Text>
               </View>
-            </TouchableOpacity>
-          ))}
-        </View>
+            )}
+          </View>
+        )}
       </ScrollView>
     </Screen>
   );
@@ -494,5 +520,54 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFF',
+  },
+  // Search Guide Styles
+  searchGuideContainer: {
+    marginHorizontal: 24,
+    padding: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    alignItems: 'center',
+    shadowColor: '#D1D9E6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  searchGuideIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  searchGuideTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2D3436',
+    marginBottom: 8,
+  },
+  searchGuideDesc: {
+    fontSize: 14,
+    color: '#636E72',
+    textAlign: 'center',
+    lineHeight: 1.6,
+  },
+  // Empty State Styles
+  emptyCourseList: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+    gap: 12,
+  },
+  emptyCourseText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#636E72',
+  },
+  emptyCourseSubtext: {
+    fontSize: 13,
+    color: '#B2BEC3',
   },
 });
