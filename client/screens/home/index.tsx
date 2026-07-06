@@ -27,6 +27,40 @@ const subjectColors: Record<string, string> = {
   chemistry: '#FDCB6E',
 };
 
+// Mock tasks data
+const mockTasks = [
+  {
+    id: 1,
+    title: '古诗词鉴赏 - 唐诗三百首',
+    subject: 'chinese',
+    subjectName: '语文 · 七年级',
+    type: 'video',
+    duration: 20,
+    completed: false,
+    progress: 0,
+  },
+  {
+    id: 2,
+    title: '计算打卡 - 有理数运算',
+    subject: 'math',
+    subjectName: '数学 · 七年级',
+    type: 'exercise',
+    duration: 15,
+    completed: false,
+    progress: 0,
+  },
+  {
+    id: 3,
+    title: '单词背诵 - 初中核心词汇',
+    subject: 'english',
+    subjectName: '英语 · 七年级',
+    type: 'exercise',
+    duration: 25,
+    completed: false,
+    progress: 0,
+  },
+];
+
 interface Task {
   id: number;
   title: string;
@@ -55,19 +89,20 @@ export default function HomeScreen() {
 
   const fetchTasks = useCallback(async () => {
     try {
-      /**
-       * 服务端文件：server/src/routes/tasks.ts
-       * 接口：GET /api/v1/tasks
-       * Query 参数: date?: string (可选)
-       */
-      const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/tasks`);
-      const json = await res.json();
-      if (json.code === 0) {
-        setTasks(json.data.tasks);
-        setSummary(json.data.summary);
+      try {
+        const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/tasks`);
+        const json = await res.json();
+        if (json.code === 0) {
+          setTasks(json.data.tasks);
+          setSummary(json.data.summary);
+          return;
+        }
+      } catch (e) {
+        console.error('Failed to fetch tasks:', e);
       }
-    } catch (e) {
-      console.error('Failed to fetch tasks:', e);
+      // Fallback to mock data
+      setTasks(mockTasks);
+      setSummary({ total: 3, completed: 0, totalDuration: 60, completedDuration: 0, progress: 0 });
     } finally {
       setLoading(false);
     }
@@ -81,11 +116,6 @@ export default function HomeScreen() {
 
   const handleCompleteTask = useCallback(async (taskId: number) => {
     try {
-      /**
-       * 服务端文件：server/src/routes/tasks.ts
-       * 接口：POST /api/v1/tasks/:id/complete
-       * Path 参数: id: number
-       */
       const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/tasks/${taskId}/complete`, {
         method: 'POST',
       });
@@ -151,7 +181,6 @@ export default function HomeScreen() {
                   <Text style={styles.progressLabel}>完成度</Text>
                 </View>
               </View>
-              {/* Progress Bar */}
               <View style={styles.progressBarBg}>
                 <View
                   style={[
@@ -163,35 +192,6 @@ export default function HomeScreen() {
             </View>
           </View>
         )}
-
-        {/* Quick Stats - 4 compact items in one row */}
-        <View style={styles.shadowDark}>
-          <View style={[styles.shadowLight, styles.compactStatsRow]}>
-            <View style={styles.compactStatItem}>
-              <FontAwesome6 name="bullseye" size={16} color="#6C63FF" />
-              <Text style={styles.compactStatValue}>85%</Text>
-              <Text style={styles.compactStatLabel}>正确率</Text>
-            </View>
-            <View style={styles.compactStatDivider} />
-            <View style={styles.compactStatItem}>
-              <FontAwesome6 name="fire" size={16} color="#FF6584" />
-              <Text style={styles.compactStatValue}>15天</Text>
-              <Text style={styles.compactStatLabel}>连续</Text>
-            </View>
-            <View style={styles.compactStatDivider} />
-            <View style={styles.compactStatItem}>
-              <FontAwesome6 name="ranking-star" size={16} color="#00B894" />
-              <Text style={styles.compactStatValue}>第3</Text>
-              <Text style={styles.compactStatLabel}>排名</Text>
-            </View>
-            <View style={styles.compactStatDivider} />
-            <View style={styles.compactStatItem}>
-              <FontAwesome6 name="circle-check" size={16} color="#FDCB6E" />
-              <Text style={styles.compactStatValue}>42题</Text>
-              <Text style={styles.compactStatLabel}>答对</Text>
-            </View>
-          </View>
-        </View>
 
         {/* Today's Tasks */}
         <View style={styles.sectionHeader}>
@@ -209,7 +209,7 @@ export default function HomeScreen() {
                   backgroundColor: `${subjectColors[task.subject] || '#6C63FF'}20`,
                 }]}>
                   <FontAwesome6
-                    name={task.type === 'video' ? 'play-circle' : 'pencil-alt'}
+                    name={task.type === 'video' ? 'play-circle' : task.type === 'exercise' ? 'pencil' : 'pencil-alt'}
                     size={22}
                     color={subjectColors[task.subject] || '#6C63FF'}
                   />
@@ -219,7 +219,6 @@ export default function HomeScreen() {
                   <Text style={styles.taskMeta}>
                     {task.subjectName} · {task.duration}分钟
                   </Text>
-                  {/* Mini progress bar */}
                   <View style={styles.miniProgressBg}>
                     <View
                       style={[
@@ -256,60 +255,29 @@ export default function HomeScreen() {
           </View>
         ))}
 
-        {/* Quick Actions */}
+        {/* Quick Actions - Camera Only */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>快捷入口</Text>
+          <Text style={styles.sectionTitle}>拍照搜题</Text>
+          <Text style={styles.seeAllText} onPress={() => router.push('/camera')}>开始使用</Text>
         </View>
-        <View style={styles.quickActionsRow}>
-          <TouchableOpacity
-            style={styles.quickActionItem}
-            onPress={() => router.push('/camera')}
-          >
+        <TouchableOpacity
+          style={styles.cameraCard}
+          onPress={() => router.push('/camera')}
+        >
+          <View style={styles.cameraCardLeft}>
             <LinearGradient
               colors={['#FF6584', '#FF8FA3']}
-              style={styles.quickActionGradient}
+              style={styles.cameraIconBg}
             >
-              <FontAwesome6 name="camera" size={24} color="#FFF" />
+              <FontAwesome6 name="camera" size={28} color="#FFF" />
             </LinearGradient>
-            <Text style={styles.quickActionText}>拍照搜题</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickActionItem}
-            onPress={() => router.push('/favorites')}
-          >
-            <LinearGradient
-              colors={['#FDCB6E', '#F9A825']}
-              style={styles.quickActionGradient}
-            >
-              <FontAwesome6 name="star" size={24} color="#FFF" />
-            </LinearGradient>
-            <Text style={styles.quickActionText}>我的收藏</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickActionItem}
-            onPress={() => router.push('/courses')}
-          >
-            <LinearGradient
-              colors={['#6C63FF', '#896BFF']}
-              style={styles.quickActionGradient}
-            >
-              <FontAwesome6 name="book-open" size={24} color="#FFF" />
-            </LinearGradient>
-            <Text style={styles.quickActionText}>全部课程</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickActionItem}
-            onPress={() => router.push('/wrong-questions')}
-          >
-            <LinearGradient
-              colors={['#00B894', '#55EFC4']}
-              style={styles.quickActionGradient}
-            >
-              <FontAwesome6 name="circle-xmark" size={24} color="#FFF" />
-            </LinearGradient>
-            <Text style={styles.quickActionText}>错题本</Text>
-          </TouchableOpacity>
-        </View>
+          </View>
+          <View style={styles.cameraCardRight}>
+            <Text style={styles.cameraCardTitle}>拍照识别题目</Text>
+            <Text style={styles.cameraCardDesc}>自动识别并搜索答案</Text>
+          </View>
+          <FontAwesome6 name="arrow-right" size={18} color="#B2BEC3" />
+        </TouchableOpacity>
       </ScrollView>
     </Screen>
   );
@@ -370,7 +338,6 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     marginBottom: 16,
     marginHorizontal: 24,
-    // Android
     elevation: 6,
     backgroundColor: '#F0F0F3',
   },
@@ -382,7 +349,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F0F3',
     borderRadius: 24,
     padding: 20,
-    // Android
     borderWidth: 0.5,
     borderColor: 'rgba(255,255,255,0.5)',
   },
@@ -431,36 +397,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 24,
     marginBottom: 4,
-  },
-  compactStatsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    marginHorizontal: 24,
-    marginBottom: 4,
-  },
-  compactStatItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  compactStatDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: 'rgba(0,0,0,0.06)',
-  },
-  compactStatValue: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#2D3436',
-    marginTop: 4,
-  },
-  compactStatLabel: {
-    fontSize: 10,
-    color: '#636E72',
-    marginTop: 2,
-    fontWeight: '500',
   },
   statCard: {
     alignItems: 'center',
@@ -545,33 +481,46 @@ const styles = StyleSheet.create({
   },
   completeBtnDone: {},
   completeBtnCircle: {},
-  quickActionsRow: {
+  cameraCard: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: 20,
-    flexWrap: 'wrap',
-    gap: 12,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginHorizontal: 24,
     marginBottom: 20,
-  },
-  quickActionItem: {
-    alignItems: 'center',
-  },
-  quickActionGradient: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#6C63FF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
+    shadowColor: '#D1D9E6',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
     elevation: 4,
   },
-  quickActionText: {
-    fontSize: 12,
-    fontWeight: '600',
+  cameraCardLeft: {
+    marginRight: 16,
+  },
+  cameraIconBg: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#FF6584',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  cameraCardRight: {
+    flex: 1,
+  },
+  cameraCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
     color: '#2D3436',
-    marginTop: 8,
+  },
+  cameraCardDesc: {
+    fontSize: 13,
+    color: '#636E72',
+    marginTop: 2,
   },
 });

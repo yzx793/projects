@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
+  TextInput,
 } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
@@ -67,25 +68,17 @@ export default function CoursesScreen() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [activeSubject, setActiveSubject] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [searchText, setSearchText] = useState('');
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      /**
-       * 服务端文件：server/src/routes/courses.ts
-       * 接口：GET /api/v1/courses/subjects
-       */
       const subjectsRes = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/courses/subjects`);
       const subjectsJson = await subjectsRes.json();
       if (subjectsJson.code === 0) {
         setSubjects(subjectsJson.data);
       }
 
-      /**
-       * 服务端文件：server/src/routes/courses.ts
-       * 接口：GET /api/v1/courses
-       * Query 参数: subject?: string
-       */
       const subjectParam = activeSubject === 'all' ? '' : `?subject=${activeSubject}`;
       const coursesRes = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/courses${subjectParam}`);
       const coursesJson = await coursesRes.json();
@@ -107,6 +100,7 @@ export default function CoursesScreen() {
 
   const handleSubjectChange = (subjectId: string) => {
     setActiveSubject(subjectId);
+    setSearchText('');
   };
 
   if (loading && courses.length === 0) {
@@ -187,6 +181,43 @@ export default function CoursesScreen() {
           </ScrollView>
         </View>
 
+        {/* Search Bar for Chinese/English */}
+        {(activeSubject === 'chinese' || activeSubject === 'english') && (
+          <View style={styles.searchContainer}>
+            <View style={styles.searchWrapper}>
+              <FontAwesome6 name="search" size={16} color="#B2BEC3" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder={activeSubject === 'chinese' ? '输入古诗词标题...' : '输入单词...'}
+                value={searchText}
+                onChangeText={setSearchText}
+                placeholderTextColor="#B2BEC3"
+              />
+              <TouchableOpacity
+                style={styles.searchBtn}
+                onPress={() => {
+                  if (searchText.trim()) {
+                    router.push('/search-result', { keyword: searchText, subject: activeSubject });
+                  }
+                }}
+              >
+                <Text style={styles.searchBtnText}>搜索</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Math Upload Button */}
+        {activeSubject === 'math' && (
+          <TouchableOpacity 
+            style={styles.uploadBtn}
+            onPress={() => router.push('/course-upload')}
+          >
+            <FontAwesome6 name="upload" size={20} color="#FFF" />
+            <Text style={styles.uploadBtnText}>上传课程</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Course List */}
         <View style={styles.courseListContainer}>
           {courses.map((course) => (
@@ -242,7 +273,6 @@ export default function CoursesScreen() {
                           <Text style={styles.courseMetaText}>{course.completedLessons}/{course.lessons}</Text>
                         </View>
                       </View>
-                      {/* Course progress bar */}
                       <View style={styles.courseProgressBg}>
                         <View
                           style={[
@@ -411,5 +441,58 @@ const styles = StyleSheet.create({
   courseProgressFill: {
     height: 3,
     borderRadius: 2,
+  },
+  searchContainer: {
+    paddingHorizontal: 24,
+    marginBottom: 16,
+  },
+  searchWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 9999,
+    paddingHorizontal: 16,
+    shadowColor: '#D1D9E6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#2D3436',
+  },
+  searchBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#6C63FF',
+    borderRadius: 9999,
+  },
+  searchBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  uploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginHorizontal: 24,
+    marginBottom: 16,
+    paddingVertical: 14,
+    backgroundColor: '#6C63FF',
+    borderRadius: 16,
+    shadowColor: '#6C63FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+  },
+  uploadBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFF',
   },
 });

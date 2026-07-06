@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
+import { poems, englishWords } from '../data/mockData.js'; 
 import multer from 'multer';
 
 const router = Router();
@@ -126,6 +127,95 @@ router.get('/question/:id', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Get question error:', error);
     res.status(500).json({ code: 500, message: 'Failed to get question' });
+  }
+});
+
+/**
+ * GET /api/v1/search/poem
+ * 搜索古诗词
+ * Query: keyword - 诗词标题或作者
+ */
+router.get('/poem', (req: Request, res: Response) => {
+  try {
+    const { keyword } = req.query;
+    
+    if (!keyword) {
+      return res.json({ code: 0, data: poems });
+    }
+    
+    const results = poems.filter(poem => 
+      poem.title.includes(String(keyword)) || 
+      poem.author.includes(String(keyword))
+    );
+    
+    res.json({ code: 0, data: results });
+  } catch (error) {
+    console.error('Poem search error:', error);
+    res.status(500).json({ code: 500, message: 'Search failed' });
+  }
+});
+
+/**
+ * GET /api/v1/search/poem/:id
+ * 获取诗词详情
+ */
+router.get('/poem/:id', (req: Request, res: Response) => {
+  try {
+    const id = parseInt(String(req.params.id));
+    const poem = poems.find(p => p.id === id);
+    
+    if (!poem) {
+      return res.status(404).json({ code: 404, message: '诗词不存在' });
+    }
+    
+    res.json({ code: 0, data: poem });
+  } catch (error) {
+    console.error('Get poem error:', error);
+    res.status(500).json({ code: 500, message: 'Failed to get poem' });
+  }
+});
+
+/**
+ * GET /api/v1/search/word
+ * 搜索英语单词
+ * Query: keyword - 单词
+ */
+router.get('/word', (req: Request, res: Response) => {
+  try {
+    const { keyword } = req.query;
+    
+    if (!keyword) {
+      return res.json({ code: 0, data: englishWords });
+    }
+    
+    const results = englishWords.filter(word => 
+      word.word.toLowerCase().includes(String(keyword).toLowerCase())
+    );
+    
+    res.json({ code: 0, data: results });
+  } catch (error) {
+    console.error('Word search error:', error);
+    res.status(500).json({ code: 500, message: 'Search failed' });
+  }
+});
+
+/**
+ * GET /api/v1/search/word/:id
+ * 获取单词详情
+ */
+router.get('/word/:id', (req: Request, res: Response) => {
+  try {
+    const id = parseInt(String(req.params.id));
+    const word = englishWords.find(w => w.id === id);
+    
+    if (!word) {
+      return res.status(404).json({ code: 404, message: '单词不存在' });
+    }
+    
+    res.json({ code: 0, data: word });
+  } catch (error) {
+    console.error('Get word error:', error);
+    res.status(500).json({ code: 500, message: 'Failed to get word' });
   }
 });
 

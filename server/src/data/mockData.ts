@@ -26,40 +26,30 @@ export const subjects = [
 export const todayTasks = [
   {
     id: 1,
-    title: '二次函数图像与性质',
-    subject: 'math',
-    subjectName: '数学',
-    type: 'video',
-    duration: 15,
-    completed: true,
-    progress: 100,
-  },
-  {
-    id: 2,
-    title: '古诗词鉴赏 - 唐诗专题',
+    title: '古诗词鉴赏 - 唐诗三百首',
     subject: 'chinese',
-    subjectName: '语文',
-    type: 'practice',
-    duration: 20,
-    completed: false,
-    progress: 60,
-  },
-  {
-    id: 3,
-    title: '牛顿第三定律',
-    subject: 'physics',
-    subjectName: '物理',
+    subjectName: '语文 · 七年级',
     type: 'video',
-    duration: 12,
+    duration: 20,
     completed: false,
     progress: 0,
   },
   {
-    id: 4,
-    title: '英语阅读理解训练',
+    id: 2,
+    title: '计算打卡 - 有理数运算',
+    subject: 'math',
+    subjectName: '数学 · 七年级',
+    type: 'exercise',
+    duration: 15,
+    completed: false,
+    progress: 0,
+  },
+  {
+    id: 3,
+    title: '单词背诵 - 初中核心词汇',
     subject: 'english',
-    subjectName: '英语',
-    type: 'practice',
+    subjectName: '英语 · 七年级',
+    type: 'exercise',
     duration: 25,
     completed: false,
     progress: 0,
@@ -272,6 +262,130 @@ export const learningStats = {
     { subject: '化学', accuracy: 65, trend: 'up' },
   ],
 };
+
+// 诗词数据库
+export const poems = [
+  {
+    id: 1,
+    title: '静夜思',
+    author: '李白',
+    dynasty: '唐',
+    content: ['床前明月光', '疑是地上霜', '举头望明月', '低头思故乡'],
+    translation: [
+      '明亮的月光洒在床前的窗户纸上',
+      '好像地上泛起了一层白霜',
+      '我禁不住抬起头来，看那天窗外空中的一轮明月',
+      '不由得低头沉思，想起远方的家乡'
+    ],
+    explanation: '这首诗写的是在寂静的月夜思念家乡的感受。诗的前两句写诗人在作客他乡的特定环境中一刹那间产生的错觉。后两句通过动作神态的刻画，深化思乡之情。全诗运用比喻、衬托等手法，表达客居思乡之情，语言清新朴素而韵味含蓄无穷。',
+    tags: ['思乡', '月亮', '唐诗'],
+  },
+  {
+    id: 2,
+    title: '春晓',
+    author: '孟浩然',
+    dynasty: '唐',
+    content: ['春眠不觉晓', '处处闻啼鸟', '夜来风雨声', '花落知多少'],
+    translation: [
+      '春日里贪睡不知不觉天就亮了',
+      '到处可以听见小鸟的鸣叫声',
+      '回想昨夜的阵阵风雨声',
+      '吹落了多少芳香的春花'
+    ],
+    explanation: '这首诗是诗人隐居在鹿门山时所做，意境十分优美。诗人抓住春天的早晨刚刚醒来时的一瞬间展开描写和联想，生动地表达了诗人对春天的热爱和怜惜之情。',
+    tags: ['春天', '自然', '唐诗'],
+  },
+  {
+    id: 3,
+    title: '登鹳雀楼',
+    author: '王之涣',
+    dynasty: '唐',
+    content: ['白日依山尽', '黄河入海流', '欲穷千里目', '更上一层楼'],
+    translation: [
+      '夕阳依傍着西山慢慢地沉没',
+      '滔滔黄河朝着东海汹涌奔流',
+      '若想把千里的风光景物看够',
+      '那就要登上更高的一层城楼'
+    ],
+    explanation: '这首诗写诗人在登高望远中表现出来的不凡的胸襟抱负，反映了盛唐时期人们积极向上的进取精神。诗的前两句写所见，后两句写所思，写得出人意料，把哲理与景物、情势溶化得天衣无缝。',
+    tags: ['登高', '哲理', '唐诗'],
+  },
+];
+
+// 英语单词数据库
+export const englishWords = [
+  {
+    id: 1,
+    word: 'beautiful',
+    phonetic: '/ˈbjuːtɪfl/',
+    partOfSpeech: 'adj.',
+    meaning: '美丽的，漂亮的',
+    examples: [
+      'She is a beautiful girl.',
+      'What a beautiful day!',
+      'The scenery is beautiful.'
+    ],
+    translationExamples: [
+      '她是一个美丽的女孩。',
+      '多么美好的一天！',
+      '风景很美。'
+    ],
+    forms: {
+      comparative: 'more beautiful',
+      superlative: 'most beautiful',
+      adverb: 'beautifully'
+    },
+    explanation: '用来形容人、事物或景色非常好看，给人愉悦的视觉感受。',
+  },
+  {
+    id: 2,
+    word: 'run',
+    phonetic: '/rʌn/',
+    partOfSpeech: 'v.',
+    meaning: '跑，奔跑；经营；运行',
+    examples: [
+      'I run every morning.',
+      'She runs a small business.',
+      'The program runs smoothly.'
+    ],
+    translationExamples: [
+      '我每天早上跑步。',
+      '她经营一家小生意。',
+      '程序运行得很顺利。'
+    ],
+    forms: {
+      past: 'ran',
+      pastParticiple: 'run',
+      presentParticiple: 'running',
+      noun: 'runner'
+    },
+    explanation: '基本意思是快速移动，也可表示经营管理或机器运行。',
+  },
+  {
+    id: 3,
+    word: 'happy',
+    phonetic: '/ˈhæpi/',
+    partOfSpeech: 'adj.',
+    meaning: '快乐的，幸福的',
+    examples: [
+      'I am very happy today.',
+      'Happy birthday to you!',
+      'They lived happily ever after.'
+    ],
+    translationExamples: [
+      '我今天非常开心。',
+      '祝你生日快乐！',
+      '从此他们过上了幸福的生活。'
+    ],
+    forms: {
+      comparative: 'happier',
+      superlative: 'happiest',
+      adverb: 'happily',
+      noun: 'happiness'
+    },
+    explanation: '表示感到愉悦、满足或幸运的状态。',
+  },
+];
 
 // 勋章数据
 export const badges = [

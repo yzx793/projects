@@ -5,6 +5,85 @@ import { wrongQuestions } from '../data/mockData.js';
 
 const router = Router();
 
+
+/**
+ * POST /api/v1/ai/chat
+ * AI对话接口 - 支持语文诗词和英语对话
+ * Body: { message: string, mode: 'chinese' | 'english' }
+ */
+router.post('/chat', async (req: Request, res: Response) => {
+  const { message, mode = 'chinese' } = req.body;
+
+  if (!message) {
+    return res.status(400).json({ code: 400, message: '消息内容不能为空' });
+  }
+
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-store, no-transform, must-revalidate');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  try {
+    const config = new Config();
+    const client = new LLMClient(config);
+
+    let systemPrompt = '';
+    
+    if (mode === 'chinese') {
+      // 语文诗词对话模式
+      const poemTitles = poems.map(p => p.title).join('、');
+      systemPrompt = `你是一位精通中国古诗词的AI助手。
+      
+当前诗词库包含：${poemTitles}
+
+你的任务：
+1. 当用户说出上句诗时，给出下句
+2. 当用户问诗词时，提供原文、翻译和赏析
+3. 用优美、古典的语言风格回应
+
+请用中文回复。`;
+    } else {
+      // 英语对话模式
+      systemPrompt = `你是一位英语学习助手。
+      
+你的任务：
+1. 用英语与用户对话
+2. 实时提供中文翻译
+3. 纠正语法错误（如果有的话）
+4. 提供单词解释和例句
+
+回复格式：
+【英文回复】...
+【中文翻译】...`;
+    }
+
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      { role: 'user' as const, content: message },
+    ];
+
+    const stream = client.stream(messages, {
+      model: 'doubao-seed-2-0-lite-260215',
+      temperature: 0.7,
+    });
+
+    for await (const chunk of stream) {
+      if (chunk.content) {
+        res.write(`data: ${JSON.stringify({ content: chunk.content.toString() })}\n\n`);
+      }
+    }
+
+    res.write('data: [DONE]\n\n');
+    res.end();
+  } catch (error) {
+    console.error('AI chat error:', error);
+    res.write(`data: ${JSON.stringify({ error: 'AI对话失败，请稍后重试' })}\n\n`);
+    res.write('data: [DONE]\n\n');
+    res.end();
+  }
+});
+
+
 /**
  * POST /api/v1/ai/analyze
  * AI分析题目 - SSE流式输出
