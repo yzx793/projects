@@ -258,11 +258,10 @@ export default function HomeScreen() {
         {/* Quick Actions - Camera Only */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>拍照搜题</Text>
-          <Text style={styles.seeAllText} onPress={() => router.push('/camera')}>开始使用</Text>
         </View>
         <TouchableOpacity
           style={styles.cameraCard}
-          onPress={() => router.push('/camera')}
+          onPress={() => router.push('/question-search')}
         >
           <View style={styles.cameraCardLeft}>
             <LinearGradient

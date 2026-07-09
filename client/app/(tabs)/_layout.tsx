@@ -75,19 +75,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="ai-chat"
-        options={{
-          title: 'AI互动',
-          tabBarIcon: ({ color, focused }) => (
-            <FontAwesome6
-              name="message-circle"
-              size={20}
-              color={color}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="wrong-questions"
         options={{
           title: '错题本',
@@ -111,6 +98,12 @@ export default function TabLayout() {
               color={color}
             />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="ai-chat"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

@@ -12,6 +12,7 @@ import {
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeSearchParams } from '@/hooks/useSafeRouter';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
 
@@ -26,10 +27,11 @@ type ChatMode = 'chinese' | 'english';
 
 export default function AIChatScreen() {
   const insets = useSafeAreaInsets();
+  const { mode: routeMode } = useSafeSearchParams<{ mode?: string }>();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [chatMode, setChatMode] = useState<ChatMode>('chinese');
+  const [chatMode, setChatMode] = useState<ChatMode>(routeMode === 'english' ? 'english' : 'chinese');
   const scrollRef = useRef<ScrollView>(null);
 
   const scrollToBottom = useCallback(() => {
@@ -268,8 +270,6 @@ const styles = StyleSheet.create({
   messageContainer: {
     marginBottom: 16,
     maxWidth: '85%',
-    flexShrink: 1, 
-    flexWrap: 'wrap', 
   },
   userMessage: {
     alignSelf: 'flex-end',
@@ -283,29 +283,25 @@ const styles = StyleSheet.create({
     padding: 12,
     maxWidth: '100%',
   },
-aiBubble: {
-  backgroundColor: '#FFFFFF',
-  borderRadius: 16,
-  padding: 14,
-  maxWidth: '100%',
-  minWidth: '50%', // 添加最小宽度
-  shadowColor: '#D1D9E6',
-  shadowOffset: { width: 2, height: 2 },
-  shadowOpacity: 0.3,
-  shadowRadius: 4,
-},
+  aiBubble: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    maxWidth: '100%',
+    shadowColor: '#D1D9E6',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
   userMessageText: {
     fontSize: 14,
     color: '#FFF',
-    lineHeight: 1.6,
+    lineHeight: 22,
   },
   aiMessageText: {
     fontSize: 14,
     color: '#2D3436',
-     lineHeight: 1.8, // 增加行高
-     flexWrap: 'wrap',
-     wordBreak: 'break-word'
-    
+    lineHeight: 24,
   },
   loadingContainer: {
     alignItems: 'center',

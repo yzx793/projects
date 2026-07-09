@@ -66,7 +66,7 @@ export default function CoursesScreen() {
   const insets = useSafeAreaInsets();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
-  const [activeSubject, setActiveSubject] = useState('all');
+  const [activeSubject, setActiveSubject] = useState('chinese');
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
 
@@ -133,27 +133,6 @@ export default function CoursesScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.subjectTabsContainer}
           >
-            <TouchableOpacity
-              style={[
-                styles.subjectTab,
-                activeSubject === 'all' && styles.subjectTabActive,
-              ]}
-              onPress={() => handleSubjectChange('all')}
-            >
-              <FontAwesome6
-                name="table-cells-large"
-                size={16}
-                color={activeSubject === 'all' ? '#FFF' : '#636E72'}
-              />
-              <Text
-                style={[
-                  styles.subjectTabText,
-                  activeSubject === 'all' && styles.subjectTabTextActive,
-                ]}
-              >
-                全部
-              </Text>
-            </TouchableOpacity>
             {subjects.map((s) => (
               <TouchableOpacity
                 key={s.id}
@@ -232,6 +211,15 @@ export default function CoursesScreen() {
                 ? '在上方搜索框输入古诗词标题，即可查看原文、译文和赏析' 
                 : '在上方搜索框输入单词，即可查看释义、例句和词形变化'}
             </Text>
+            <TouchableOpacity
+              style={[styles.aiChatBtn, { backgroundColor: subjectColors[activeSubject] }]}
+              onPress={() => router.push('/ai-chat', { mode: activeSubject === 'chinese' ? 'chinese' : 'english' })}
+            >
+              <FontAwesome6 name="message-circle" size={20} color="#FFF" />
+              <Text style={styles.aiChatBtnText}>
+                {activeSubject === 'chinese' ? 'AI诗词对话' : 'AI英语对话'}
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -551,7 +539,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#636E72',
     textAlign: 'center',
-    lineHeight: 1.6,
+    lineHeight: 22,
+  },
+  aiChatBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 9999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+  },
+  aiChatBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFF',
   },
   // Empty State Styles
   emptyCourseList: {

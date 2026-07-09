@@ -34,7 +34,7 @@ router.post('/chat', async (req: Request, res: Response) => {
       const poemTitles = poems.map(p => p.title).join('、');
       systemPrompt = `你是一位精通中国古诗词的AI助手。
       
-当前诗词库包含：${poemTitles}
+
 
 你的任务：
 1. 当用户说出上句诗时，给出下句

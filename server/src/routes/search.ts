@@ -1,15 +1,18 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { poems, englishWords } from '../data/mockData.js'; 
+import { LLMClient, Config } from 'coze-coding-dev-sdk';
+import { poems, englishWords } from '../data/mockData.js';
 import multer from 'multer';
 
 const router = Router();
 
-// Configure multer for memory storage
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: { fileSize: 10 * 1024 * 1024 },
 });
+
+const poemCache = new Map<string, any[]>();
+const wordCache = new Map<string, any[]>();
 
 // Mock question database for search results
 const mockQuestions = [
@@ -135,19 +138,153 @@ router.get('/question/:id', async (req: Request, res: Response) => {
  * 搜索古诗词
  * Query: keyword - 诗词标题或作者
  */
-router.get('/poem', (req: Request, res: Response) => {
+router.get('/poem', async (req: Request, res: Response) => {
   try {
     const { keyword } = req.query;
     
     if (!keyword) {
-      return res.json({ code: 0, data: poems });
+      return res.json({ code: 0, data: [] });
     }
-    
-    const results = poems.filter(poem => 
-      poem.title.includes(String(keyword)) || 
-      poem.author.includes(String(keyword))
-    );
-    
+
+    const kw = String(keyword);
+
+    const localResults = poems.filter(poem =>
+      poem.title.includes(kw) ||
+      poem.author.includes(kw) ||
+      poem.content.some(line => line.includes(kw))
+    ).map(poem => ({
+      id: poem.id,
+      title: poem.title,
+      author: poem.author,
+      dynasty: poem.dynasty,
+      content: poem.content,
+      translation: poem.translation,
+      explanation: poem.explanation,
+      tags: poem.tags,
+      storyScenes: [] as any[],
+      source: 'local' as const,
+    }));
+
+    if (localResults.length > 0) {
+      const config = new Config();
+      const client = new LLMClient(config);
+      
+      const enrichedResults = await Promise.all(localResults.map(async (poem) => {
+        if (poem.storyScenes && poem.storyScenes.length > 0) return poem;
+        
+        const cacheKey = `story-${poem.title}`;
+        const cached = poemCache.get(cacheKey);
+        if (cached) {
+          return { ...poem, storyScenes: cached[0]?.storyScenes || [] };
+        }
+
+        try {
+          const storyPrompt = `你是一位古诗词动漫导演。请为"${poem.title}"（${poem.author}）创建一个动漫场景脚本。
+
+请严格按照以下JSON格式返回（不要返回其他内容）：
+[
+  {"emoji": "场景代表emoji", "narration": "场景旁白文字（20字以内）", "bgColor": "深色背景hex值"}
+]
+
+要求：
+- 4-6个场景
+- emoji要能代表场景画面（如🌙🛏️🏔️💧🏠等）
+- narration像动漫旁白，生动有画面感
+- bgColor用深色系hex值营造古典氛围（如#1a1a2e, #16213e, #0f3460, #533483等）`;
+          
+          let storyText = '';
+          const stream = client.stream([
+            { role: 'system' as const, content: storyPrompt },
+            { role: 'user' as const, content: `${poem.title}\n${poem.content.join('\n')}` },
+          ], { model: 'doubao-seed-2-0-lite-260215', temperature: 0.7 });
+
+          for await (const chunk of stream) {
+            if (chunk.content) storyText += chunk.content.toString();
+          }
+
+          let scenes: any[] = [];
+          try {
+            const jsonMatch = storyText.match(/\[[\s\S]*\]/);
+            if (jsonMatch) scenes = JSON.parse(jsonMatch[0]);
+          } catch (e) {
+            console.error('Failed to parse poem scenes:', e);
+          }
+
+          poemCache.set(cacheKey, [{ storyScenes: scenes }]);
+          return { ...poem, storyScenes: scenes };
+        } catch (e) {
+          console.error('Failed to generate story for poem:', e);
+          return poem;
+        }
+      }));
+
+      return res.json({ code: 0, data: enrichedResults });
+    }
+
+    const cacheKey = `search-${kw}`;
+    const cached = poemCache.get(cacheKey);
+    if (cached) {
+      return res.json({ code: 0, data: cached });
+    }
+
+    const config = new Config();
+    const client = new LLMClient(config);
+
+    const systemPrompt = `你是一位精通中国古诗词的AI助手，擅长用生动有趣的方式讲解诗词。用户会输入诗词标题、作者名或诗句，请返回相关的诗词信息。
+
+请严格按照以下JSON格式返回（不要返回其他内容）：
+[
+  {
+    "title": "诗词标题",
+    "author": "作者",
+    "dynasty": "朝代",
+    "content": ["第一句", "第二句", ...],
+    "translation": ["第一句译文", "第二句译文", ...],
+    "explanation": "赏析",
+    "tags": ["标签1", "标签2"],
+    "storyScenes": [
+      {"emoji": "场景代表emoji", "narration": "场景旁白（20字以内）", "bgColor": "深色背景hex值"}
+    ]
+  }
+]
+
+storyScenes要求：4-6个场景，emoji代表画面，narration像动漫旁白有画面感，bgColor用深色系营造古典氛围。storyScenes必须填写。
+如果有多首相关诗词，返回多首。如果找不到相关诗词，返回空数组 []。`;
+
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      { role: 'user' as const, content: kw },
+    ];
+
+    let fullText = '';
+    const stream = client.stream(messages, {
+      model: 'doubao-seed-2-0-lite-260215',
+      temperature: 0.3,
+    });
+
+    for await (const chunk of stream) {
+      if (chunk.content) {
+        fullText += chunk.content.toString();
+      }
+    }
+
+    let results: any[] = [];
+    try {
+      const jsonMatch = fullText.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        results = JSON.parse(jsonMatch[0]);
+      }
+    } catch (e) {
+      console.error('Failed to parse poem results:', e);
+    }
+
+    results = results.map((item: any, index: number) => ({
+      id: index + 1,
+      ...item,
+      source: 'llm',
+    }));
+
+    poemCache.set(cacheKey, results);
     res.json({ code: 0, data: results });
   } catch (error) {
     console.error('Poem search error:', error);
@@ -160,19 +297,7 @@ router.get('/poem', (req: Request, res: Response) => {
  * 获取诗词详情
  */
 router.get('/poem/:id', (req: Request, res: Response) => {
-  try {
-    const id = parseInt(String(req.params.id));
-    const poem = poems.find(p => p.id === id);
-    
-    if (!poem) {
-      return res.status(404).json({ code: 404, message: '诗词不存在' });
-    }
-    
-    res.json({ code: 0, data: poem });
-  } catch (error) {
-    console.error('Get poem error:', error);
-    res.status(500).json({ code: 500, message: 'Failed to get poem' });
-  }
+  res.status(404).json({ code: 404, message: '请使用搜索接口查询诗词' });
 });
 
 /**
@@ -180,18 +305,174 @@ router.get('/poem/:id', (req: Request, res: Response) => {
  * 搜索英语单词
  * Query: keyword - 单词
  */
-router.get('/word', (req: Request, res: Response) => {
+router.get('/word', async (req: Request, res: Response) => {
   try {
     const { keyword } = req.query;
     
     if (!keyword) {
-      return res.json({ code: 0, data: englishWords });
+      return res.json({ code: 0, data: [] });
     }
-    
-    const results = englishWords.filter(word => 
-      word.word.toLowerCase().includes(String(keyword).toLowerCase())
-    );
-    
+
+    const kw = String(keyword).toLowerCase();
+
+    const localResults = englishWords.filter(word =>
+      word.word.toLowerCase().includes(kw) ||
+      word.meaning.includes(kw)
+    ).map(word => {
+      const conjugation: any = {};
+      if (word.forms.past || word.forms.presentParticiple) {
+        conjugation.verb = {
+          present: word.word,
+          past: word.forms.past || '',
+          pastParticiple: word.forms.pastParticiple || '',
+          ing: word.forms.presentParticiple || '',
+        };
+      }
+      if (word.forms.comparative || word.forms.superlative) {
+        conjugation.adjective = {
+          comparative: word.forms.comparative || '',
+          superlative: word.forms.superlative || '',
+        };
+      }
+      return {
+        id: word.id,
+        word: word.word,
+        phonetic: word.phonetic,
+        partOfSpeech: word.partOfSpeech,
+        translation: word.meaning,
+        example: word.examples[0] || '',
+        exampleTranslation: word.translationExamples?.[0] || '',
+        explanation: word.explanation,
+        storyScenes: [] as any[],
+        conjugation: Object.keys(conjugation).length > 0 ? conjugation : undefined,
+        source: 'local' as const,
+      };
+    });
+
+    if (localResults.length > 0) {
+      const config = new Config();
+      const client = new LLMClient(config);
+
+      const enrichedResults = await Promise.all(localResults.map(async (word) => {
+        if (word.storyScenes && word.storyScenes.length > 0) return word;
+
+        const cacheKey = `story-${word.word}`;
+        const cached = wordCache.get(cacheKey);
+        if (cached) {
+          return { ...word, storyScenes: cached[0]?.storyScenes || [] };
+        }
+
+        try {
+          const storyPrompt = `你是一位英语动漫导演。请为单词"${word.word}"（${word.translation}）创建一个动漫场景脚本。
+
+请严格按照以下JSON格式返回（不要返回其他内容）：
+[
+  {"emoji": "场景代表emoji", "narration": "场景旁白（20字以内）", "bgColor": "温暖背景hex值"}
+]
+
+要求：
+- 3-5个场景
+- emoji要能代表场景画面
+- narration像动漫旁白，展示单词用法，生动有画面感
+- bgColor用温暖色系hex值（如#2d3436, #6c5ce7, #00b894, #e17055等）`;
+
+          let storyText = '';
+          const stream = client.stream([
+            { role: 'system' as const, content: storyPrompt },
+            { role: 'user' as const, content: `${word.word}: ${word.translation}. Example: ${word.example}` },
+          ], { model: 'doubao-seed-2-0-lite-260215', temperature: 0.7 });
+
+          for await (const chunk of stream) {
+            if (chunk.content) storyText += chunk.content.toString();
+          }
+
+          let scenes: any[] = [];
+          try {
+            const jsonMatch = storyText.match(/\[[\s\S]*\]/);
+            if (jsonMatch) scenes = JSON.parse(jsonMatch[0]);
+          } catch (e) {
+            console.error('Failed to parse word scenes:', e);
+          }
+
+          wordCache.set(cacheKey, [{ storyScenes: scenes }]);
+          return { ...word, storyScenes: scenes };
+        } catch (e) {
+          console.error('Failed to generate story for word:', e);
+          return word;
+        }
+      }));
+
+      return res.json({ code: 0, data: enrichedResults });
+    }
+
+    const cacheKey = `search-${kw}`;
+    const cached = wordCache.get(cacheKey);
+    if (cached) {
+      return res.json({ code: 0, data: cached });
+    }
+
+    const config = new Config();
+    const client = new LLMClient(config);
+
+    const systemPrompt = `你是一位专业的英语教学助手，擅长用生动有趣、像动漫角色一样的方式讲解单词。用户会输入一个英语单词，请返回该单词的详细信息。
+
+请严格按照以下JSON格式返回（不要返回其他内容）：
+[
+  {
+    "word": "单词",
+    "phonetic": "音标",
+    "partOfSpeech": "词性",
+    "translation": "中文释义",
+    "example": "例句（英文）",
+    "exampleTranslation": "例句中文翻译",
+    "explanation": "详细讲解",
+    "storyScenes": [
+      {"emoji": "场景代表emoji", "narration": "场景旁白（20字以内）", "bgColor": "温暖背景hex值"}
+    ],
+    "conjugation": {
+      "verb": { "present": "现在时", "past": "过去时", "pastParticiple": "过去分词", "ing": "进行时" },
+      "adjective": { "comparative": "比较级", "superlative": "最高级" }
+    }
+  }
+]
+
+storyScenes要求：3-5个场景，emoji代表画面，narration像动漫旁白展示单词用法，bgColor用温暖色系。storyScenes和exampleTranslation必须填写。
+如果是动词就提供verb变形，如果是形容词就提供adjective变形，都可以不提供或都提供。如果找不到相关单词，返回空数组 []。`;
+
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      { role: 'user' as const, content: kw },
+    ];
+
+    let fullText = '';
+    const stream = client.stream(messages, {
+      model: 'doubao-seed-2-0-lite-260215',
+      temperature: 0.3,
+    });
+
+    for await (const chunk of stream) {
+      if (chunk.content) {
+        fullText += chunk.content.toString();
+      }
+    }
+
+    let results: any[] = [];
+    try {
+      const jsonMatch = fullText.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        results = JSON.parse(jsonMatch[0]);
+      }
+    } catch (e) {
+      console.error('Failed to parse word results:', e);
+    }
+
+    results = results.map((item: any, index: number) => ({
+      id: index + 1,
+      ...item,
+      source: 'llm',
+    }));
+
+    wordCache.set(cacheKey, results);
     res.json({ code: 0, data: results });
   } catch (error) {
     console.error('Word search error:', error);
@@ -204,19 +485,7 @@ router.get('/word', (req: Request, res: Response) => {
  * 获取单词详情
  */
 router.get('/word/:id', (req: Request, res: Response) => {
-  try {
-    const id = parseInt(String(req.params.id));
-    const word = englishWords.find(w => w.id === id);
-    
-    if (!word) {
-      return res.status(404).json({ code: 404, message: '单词不存在' });
-    }
-    
-    res.json({ code: 0, data: word });
-  } catch (error) {
-    console.error('Get word error:', error);
-    res.status(500).json({ code: 500, message: 'Failed to get word' });
-  }
+  res.status(404).json({ code: 404, message: '请使用搜索接口查询单词' });
 });
 
 export default router;

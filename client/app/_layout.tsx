@@ -30,6 +30,8 @@ export default function RootLayout() {
         <Stack.Screen name="favorites" />
         <Stack.Screen name="question-edit" />
         <Stack.Screen name="practice" />
+        <Stack.Screen name="ai-chat" />
+        <Stack.Screen name="question-search" />
       </Stack>
       <Toast />
     </Provider>
