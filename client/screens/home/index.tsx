@@ -14,6 +14,7 @@ import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSearch } from '@/contexts/SearchContext';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
 const { width } = Dimensions.get('window');
@@ -83,6 +84,7 @@ interface TaskSummary {
 export default function HomeScreen() {
   const router = useSafeRouter();
   const insets = useSafeAreaInsets();
+  const { dailyStats, recentSearches } = useSearch();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [summary, setSummary] = useState<TaskSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -255,9 +257,12 @@ export default function HomeScreen() {
           </View>
         ))}
 
-        {/* Quick Actions - Camera Only */}
+        {/* Quick Actions - Camera */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>拍照搜题</Text>
+          {dailyStats.searchCount > 0 && (
+            <Text style={styles.searchCountText}>今日已搜 {dailyStats.searchCount} 题</Text>
+          )}
         </View>
         <TouchableOpacity
           style={styles.cameraCard}
@@ -273,10 +278,45 @@ export default function HomeScreen() {
           </View>
           <View style={styles.cameraCardRight}>
             <Text style={styles.cameraCardTitle}>拍照识别题目</Text>
-            <Text style={styles.cameraCardDesc}>自动识别并搜索答案</Text>
+            <Text style={styles.cameraCardDesc}>
+              {dailyStats.remainingSearches > 0
+                ? `自动识别并搜索答案 · 剩余${dailyStats.remainingSearches}次`
+                : '今日搜题次数已用完'}
+            </Text>
           </View>
           <FontAwesome6 name="arrow-right" size={18} color="#B2BEC3" />
         </TouchableOpacity>
+
+        {/* Recent Searches */}
+        {recentSearches.length > 0 && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>最近搜过</Text>
+              <TouchableOpacity onPress={() => router.push('/question-search')}>
+                <Text style={styles.seeAllText}>查看全部</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.recentScrollContent}
+            >
+              {recentSearches.slice(0, 5).map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.recentChip}
+                  onPress={() => router.push('/question-search')}
+                >
+                  <View style={[styles.recentChipDot, { backgroundColor: item.subjectColor }]} />
+                  <Text style={styles.recentChipSubject}>{item.subject}</Text>
+                  <Text style={styles.recentChipContent} numberOfLines={1}>
+                    {item.content}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </>
+        )}
       </ScrollView>
     </Screen>
   );
@@ -521,5 +561,44 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#636E72',
     marginTop: 2,
+  },
+  searchCountText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FF6584',
+  },
+  recentScrollContent: {
+    paddingHorizontal: 24,
+    gap: 10,
+  },
+  recentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 8,
+    shadowColor: '#D1D9E6',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 2,
+    maxWidth: 240,
+  },
+  recentChipDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  recentChipSubject: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#636E72',
+  },
+  recentChipContent: {
+    fontSize: 12,
+    color: '#2D3436',
+    flex: 1,
   },
 });

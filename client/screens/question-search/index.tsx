@@ -12,42 +12,16 @@ import { Screen } from '@/components/Screen';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSearch } from '@/contexts/SearchContext';
 
 const { width } = Dimensions.get('window');
 
 type BottomTab = 'home' | 'search' | 'bank' | 'profile';
 
-interface HistoryItem {
-  id: number;
-  subject: string;
-  subjectColor: string;
-  date: string;
-  content: string;
-  answer: string;
-}
-
-const mockHistory: HistoryItem[] = [
-  {
-    id: 1,
-    subject: '数学',
-    subjectColor: '#6C63FF',
-    date: '7月6日',
-    content: '一个长方形菜地长18米，宽12米。从这个长方形里划出一个最大的三角形种白菜，剩下部分种萝卜。\n1. 整块菜地面积是多少平方米？\n2. 种白菜的三角形面积是多少平方米？\n3. 萝卜地比白菜地少多少平方米？',
-    answer: '1. 整块菜地面积是216平方米；2. 种白菜的三角形面积是108平方米；3. 萝卜地比白菜地少108平方米。',
-  },
-  {
-    id: 2,
-    subject: '英语',
-    subjectColor: '#00B894',
-    date: '7月5日',
-    content: '用所给词的适当形式填空：She _____ (go) to school every day.',
-    answer: 'goes。主语She是第三人称单数，一般现在时动词加s/es。',
-  },
-];
-
 export default function QuestionSearchScreen() {
   const router = useSafeRouter();
   const insets = useSafeAreaInsets();
+  const { dailyStats, recentSearches } = useSearch();
   const [activeTab, setActiveTab] = useState<BottomTab>('home');
 
   const today = new Date();
@@ -56,7 +30,6 @@ export default function QuestionSearchScreen() {
   return (
     <Screen safeAreaEdges={['left', 'right']} backgroundColor="#FFF8F0">
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        {/* 1. 顶部标题区 */}
         <View style={styles.topHeader}>
           <Text style={styles.topTitle}>学习小达人</Text>
           <View style={styles.avatarPlaceholder}>
@@ -69,9 +42,7 @@ export default function QuestionSearchScreen() {
           contentContainerStyle={{ paddingBottom: 80 }}
           showsVerticalScrollIndicator={false}
         >
-          {/* 2. 双功能并排卡片区 */}
           <View style={styles.dualCardsRow}>
-            {/* 左侧 拍题搜题 */}
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => router.push('/camera')}
@@ -93,10 +64,9 @@ export default function QuestionSearchScreen() {
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* 右侧 口算批改 */}
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={() => {}}
+              onPress={() => router.push('/camera', { mode: 'calc' })}
             >
               <LinearGradient
                 colors={['#74B9FF', '#0984E3']}
@@ -116,7 +86,6 @@ export default function QuestionSearchScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* 3. 今日小结 */}
           <View style={styles.summaryCard}>
             <View style={styles.summaryHeader}>
               <View style={styles.summaryHeaderLeft}>
@@ -131,54 +100,70 @@ export default function QuestionSearchScreen() {
             </View>
             <View style={styles.summaryStats}>
               <View style={styles.summaryStatItem}>
-                <Text style={styles.summaryStatValue}>0</Text>
+                <Text style={[styles.summaryStatValue, dailyStats.searchCount > 0 && styles.summaryStatValueActive]}>
+                  {dailyStats.searchCount}
+                </Text>
                 <Text style={styles.summaryStatLabel}>搜题</Text>
               </View>
               <View style={styles.summaryStatDivider} />
               <View style={styles.summaryStatItem}>
-                <Text style={styles.summaryStatValue}>0</Text>
+                <Text style={[styles.summaryStatValue, dailyStats.favoriteCount > 0 && styles.summaryStatValueActive]}>
+                  {dailyStats.favoriteCount}
+                </Text>
                 <Text style={styles.summaryStatLabel}>收藏</Text>
               </View>
               <View style={styles.summaryStatDivider} />
               <View style={styles.summaryStatItem}>
-                <Text style={styles.summaryStatValue}>0</Text>
+                <Text style={[styles.summaryStatValue, dailyStats.wrongCount > 0 && styles.summaryStatValueActive]}>
+                  {dailyStats.wrongCount}
+                </Text>
                 <Text style={styles.summaryStatLabel}>错题</Text>
               </View>
             </View>
-            <Text style={styles.summaryFooter}>今日剩余搜题次数：10次</Text>
+            <Text style={styles.summaryFooter}>
+              今日剩余搜题次数：{dailyStats.remainingSearches}次
+            </Text>
           </View>
 
-          {/* 4. 最近搜过 */}
           <View style={styles.historyCard}>
             <View style={styles.historyHeader}>
               <View style={styles.historyHeaderLeft}>
                 <FontAwesome6 name="clock" size={14} color="#636E72" />
                 <Text style={styles.historyTitle}>最近搜过</Text>
               </View>
-              <TouchableOpacity>
-                <Text style={styles.historyViewAll}>查看全部 →</Text>
-              </TouchableOpacity>
+              {recentSearches.length > 0 && (
+                <TouchableOpacity>
+                  <Text style={styles.historyViewAll}>查看全部 →</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
-            {mockHistory.map((item) => (
-              <View key={item.id} style={styles.historyItem}>
-                <View style={styles.historyItemHeader}>
-                  <View style={[styles.historySubjectTag, { backgroundColor: item.subjectColor }]}>
-                    <Text style={styles.historySubjectText}>{item.subject}</Text>
-                  </View>
-                  <Text style={styles.historyDate}>{item.date}</Text>
-                </View>
-                <Text style={styles.historyContent}>{item.content}</Text>
-                <View style={styles.historyAnswerRow}>
-                  <Text style={styles.historyAnswerLabel}>答案: </Text>
-                  <Text style={styles.historyAnswerText}>{item.answer}</Text>
-                </View>
+            {recentSearches.length === 0 ? (
+              <View style={styles.emptyHistory}>
+                <FontAwesome6 name="magnifying-glass" size={32} color="#DFE6E9" />
+                <Text style={styles.emptyHistoryText}>还没有搜过题目哦</Text>
+                <Text style={styles.emptyHistorySubtext}>点击上方"拍题搜题"开始吧</Text>
               </View>
-            ))}
+            ) : (
+              recentSearches.slice(0, 5).map((item) => (
+                <View key={item.id} style={styles.historyItem}>
+                  <View style={styles.historyItemHeader}>
+                    <View style={[styles.historySubjectTag, { backgroundColor: item.subjectColor }]}>
+                      <Text style={styles.historySubjectText}>{item.subject}</Text>
+                    </View>
+                    <Text style={styles.historyDate}>{item.date}</Text>
+                  </View>
+                  <Text style={styles.historyContent} numberOfLines={2}>{item.content}</Text>
+                  <View style={styles.historyAnswerRow}>
+                    <Text style={styles.historyAnswerLabel}>答案: </Text>
+                    <Text style={styles.historyAnswerText} numberOfLines={1}>{item.answer}</Text>
+                  </View>
+                </View>
+              ))
+            )}
           </View>
         </ScrollView>
 
-        {/* 5. 底部导航栏 */}
         <View style={[styles.bottomNav, { paddingBottom: insets.bottom + 8 }]}>
           {([
             { key: 'home' as BottomTab, label: '首页', icon: 'house', activeColor: '#FF6584' },
@@ -222,7 +207,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF8F0',
   },
 
-  // 1. 顶部标题区
   topHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -244,7 +228,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  // 2. 双功能并排卡片区
   dualCardsRow: {
     flexDirection: 'row',
     paddingHorizontal: 20,
@@ -304,7 +287,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  // 3. 今日小结
   summaryCard: {
     marginHorizontal: 20,
     marginTop: 20,
@@ -361,6 +343,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#2D3436',
   },
+  summaryStatValueActive: {
+    color: '#6C63FF',
+  },
   summaryStatLabel: {
     fontSize: 12,
     color: '#B2BEC3',
@@ -376,7 +361,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // 4. 最近搜过
   historyCard: {
     marginHorizontal: 20,
     marginTop: 16,
@@ -409,6 +393,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#6C63FF',
+  },
+  emptyHistory: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    gap: 8,
+  },
+  emptyHistoryText: {
+    fontSize: 14,
+    color: '#B2BEC3',
+    fontWeight: '500',
+  },
+  emptyHistorySubtext: {
+    fontSize: 12,
+    color: '#DFE6E9',
   },
   historyItem: {
     backgroundColor: '#FAFAFA',
@@ -457,7 +455,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // 5. 底部导航栏
   bottomNav: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',

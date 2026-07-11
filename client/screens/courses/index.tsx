@@ -215,7 +215,7 @@ export default function CoursesScreen() {
               style={[styles.aiChatBtn, { backgroundColor: subjectColors[activeSubject] }]}
               onPress={() => router.push('/ai-chat', { mode: activeSubject === 'chinese' ? 'chinese' : 'english' })}
             >
-              <FontAwesome6 name="message-circle" size={20} color="#FFF" />
+              <FontAwesome6 name="comment" size={20} color="#FFF" />
               <Text style={styles.aiChatBtnText}>
                 {activeSubject === 'chinese' ? 'AI诗词对话' : 'AI英语对话'}
               </Text>

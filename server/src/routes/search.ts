@@ -80,33 +80,264 @@ const mockQuestions = [
 
 /**
  * POST /api/v1/search/photo
- * Upload a photo and search for matching questions
+ * Upload a photo and use AI vision model to identify and solve the question
  */
 router.post('/photo', upload.single('file'), async (req: Request, res: Response) => {
   try {
-    // In a real app, this would use OCR/AI to analyze the image
-    // For now, return mock search results
-    const results = mockQuestions.map(q => ({
-      id: q.id,
-      title: q.title,
-      subject: q.subject,
-      subjectName: q.subjectName,
-      type: q.type,
-      difficulty: q.difficulty,
-      matchScore: Math.floor(Math.random() * 20 + 80), // 80-100% match
+    const file = req.file;
+    if (!file || !file.buffer) {
+      return res.status(400).json({ code: 400, message: '请上传图片' });
+    }
+
+    const imageBase64 = file.buffer.toString('base64');
+    const imageUrl = `data:${file.mimetype || 'image/jpeg'};base64,${imageBase64}`;
+
+    const config = new Config();
+    const client = new LLMClient(config);
+
+    const systemPrompt = `你是一位专业的拍照搜题AI助手。用户会上传一张包含题目的图片，你需要：
+1. 仔细识别图片中的所有题目
+2. 判断每道题的学科（math/chinese/english/physics/chemistry）
+3. 给出完整的解题过程和答案
+
+请严格按照以下JSON格式返回（不要返回任何其他内容，不要用markdown代码块包裹）：
+{
+  "questions": [
+    {
+      "id": 1,
+      "title": "题目的完整文字内容",
+      "subject": "math",
+      "subjectName": "数学",
+      "type": "choice",
+      "difficulty": 3,
+      "content": "题目的完整描述",
+      "options": ["A. ...", "B. ..."],
+      "answer": "最终答案",
+      "steps": ["步骤1", "步骤2"],
+      "analysis": "详细解析说明",
+      "knowledgePoints": ["知识点1"]
+    }
+  ]
+}
+
+要求：
+- subject 只能是 math/chinese/english/physics/chemistry 之一
+- subjectName 对应：数学/语文/英语/物理/化学
+- steps 必须有至少2个步骤，逐步详细讲解
+- answer 要简洁明确（选择题写选项字母和内容）
+- options 选择题填写选项，填空题/计算题设为空数组
+- 如果图片中有多道题，都要识别出来
+- 如果图片不清晰或无法识别题目，返回空 questions 数组`;
+
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      {
+        role: 'user' as const,
+        content: [
+          { type: 'text' as const, text: '请识别并解答图片中的题目' },
+          {
+            type: 'image_url' as const,
+            image_url: {
+              url: imageUrl,
+              detail: 'high' as const,
+            },
+          },
+        ],
+      },
+    ];
+
+    let fullText = '';
+    const stream = client.stream(messages, {
+      model: 'doubao-seed-2-0-lite-260215',
+      temperature: 0.3,
+    });
+
+    for await (const chunk of stream) {
+      if (chunk.content) {
+        fullText += chunk.content.toString();
+      }
+    }
+
+    console.log('AI raw response length:', fullText.length);
+
+    let parsedQuestions: any[] = [];
+    try {
+      const cleaned = fullText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      const parsed = JSON.parse(cleaned);
+      parsedQuestions = parsed.questions || [];
+    } catch {
+      console.error('Direct parse failed, trying regex extraction...');
+      const jsonMatch = fullText.match(/\{[\s\S]*"questions"[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          parsedQuestions = parsed.questions || [];
+        } catch {
+          console.error('Regex extraction also failed');
+          parsedQuestions = [];
+        }
+      }
+    }
+
+    const questions = parsedQuestions.map((q: any, idx: number) => ({
+      id: q.id || Date.now() + idx,
+      title: q.title || '未识别到题目',
+      subject: q.subject || 'math',
+      subjectName: q.subjectName || '数学',
+      type: q.type || 'fill',
+      difficulty: q.difficulty || 3,
+      content: q.content || q.title || '',
+      answer: q.answer || '',
+      analysis: q.analysis || '',
+      steps: Array.isArray(q.steps) ? q.steps : [],
+      options: Array.isArray(q.options) ? q.options : [],
+      knowledgePoints: Array.isArray(q.knowledgePoints) ? q.knowledgePoints : [],
+      matchScore: 95,
     }));
+
+    console.log('Parsed questions count:', questions.length);
 
     res.json({
       code: 0,
       message: 'Search completed',
       data: {
-        questions: results,
-        total: results.length,
+        questions,
+        total: questions.length,
       },
     });
   } catch (error) {
     console.error('Photo search error:', error);
     res.status(500).json({ code: 500, message: 'Search failed' });
+  }
+});
+
+/**
+ * POST /api/v1/search/calc-check
+ * Upload a photo of oral calculation problems and use AI to check answers
+ */
+router.post('/calc-check', upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    const file = req.file;
+    if (!file || !file.buffer) {
+      return res.status(400).json({ code: 400, message: '请上传图片' });
+    }
+
+    const imageBase64 = file.buffer.toString('base64');
+    const imageUrl = `data:${file.mimetype || 'image/jpeg'};base64,${imageBase64}`;
+
+    const config = new Config();
+    const client = new LLMClient(config);
+
+    const systemPrompt = `你是一位专业的口算批改AI助手。用户会上传一张包含口算题的图片（通常是小学生口算练习），你需要：
+
+1. 识别图片中每一道口算题（如 "3+5=8", "12-7=5", "6×8=48" 等）
+2. 判断每道题学生写的答案是否正确
+3. 如果答案错误，给出正确答案
+
+请严格按照以下JSON格式返回（不要返回任何其他内容，不要用markdown代码块包裹）：
+{
+  "problems": [
+    {
+      "expression": "3 + 5",
+      "userAnswer": "8",
+      "correctAnswer": "8",
+      "isCorrect": true
+    },
+    {
+      "expression": "12 - 7",
+      "userAnswer": "4",
+      "correctAnswer": "5",
+      "isCorrect": false
+    }
+  ]
+}
+
+要求：
+- expression 只写算式部分，不写等号和答案（如 "3 + 5" 而不是 "3 + 5 = 8"）
+- userAnswer 是学生写的答案
+- correctAnswer 是正确答案
+- isCorrect 判断学生答案是否正确
+- 如果图片不清晰或无法识别，返回空 problems 数组
+- 尽量识别出所有口算题`;
+
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      {
+        role: 'user' as const,
+        content: [
+          { type: 'text' as const, text: '请识别并批改图片中的口算题' },
+          {
+            type: 'image_url' as const,
+            image_url: {
+              url: imageUrl,
+              detail: 'high' as const,
+            },
+          },
+        ],
+      },
+    ];
+
+    let fullText = '';
+    const stream = client.stream(messages, {
+      model: 'doubao-seed-2-0-lite-260215',
+      temperature: 0.2,
+    });
+
+    for await (const chunk of stream) {
+      if (chunk.content) {
+        fullText += chunk.content.toString();
+      }
+    }
+
+    console.log('Calc check AI raw response length:', fullText.length);
+
+    let parsedProblems: any[] = [];
+    try {
+      const cleaned = fullText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      const parsed = JSON.parse(cleaned);
+      parsedProblems = parsed.problems || [];
+    } catch {
+      console.error('Direct parse failed, trying regex extraction...');
+      const jsonMatch = fullText.match(/\{[\s\S]*"problems"[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          parsedProblems = parsed.problems || [];
+        } catch {
+          console.error('Regex extraction also failed');
+          parsedProblems = [];
+        }
+      }
+    }
+
+    const problems = parsedProblems.map((p: any) => ({
+      expression: p.expression || '',
+      userAnswer: String(p.userAnswer ?? ''),
+      correctAnswer: String(p.correctAnswer ?? ''),
+      isCorrect: !!p.isCorrect,
+    }));
+
+    const total = problems.length;
+    const correct = problems.filter((p: any) => p.isCorrect).length;
+    const wrong = total - correct;
+    const score = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+    console.log('Calc check result:', { total, correct, wrong, score });
+
+    res.json({
+      code: 0,
+      message: 'Calc check completed',
+      data: {
+        total,
+        correct,
+        wrong,
+        problems,
+        score,
+      },
+    });
+  } catch (error) {
+    console.error('Calc check error:', error);
+    res.status(500).json({ code: 500, message: 'Calc check failed' });
   }
 });
 
