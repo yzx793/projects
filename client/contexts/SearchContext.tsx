@@ -27,7 +27,7 @@ interface SearchContextType {
 const SearchContext = createContext<SearchContextType | undefined>(undefined);
 
 const MAX_RECENT_SEARCHES = 20;
-const MAX_DAILY_SEARCHES = 10;
+const MAX_DAILY_SEARCHES = 40; // 每天40次搜题机会（每次拍照返回4题，消耗4次）
 
 let nextId = 1;
 

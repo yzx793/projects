@@ -260,9 +260,6 @@ export default function HomeScreen() {
         {/* Quick Actions - Camera */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>拍照搜题</Text>
-          {dailyStats.searchCount > 0 && (
-            <Text style={styles.searchCountText}>今日已搜 {dailyStats.searchCount} 题</Text>
-          )}
         </View>
         <TouchableOpacity
           style={styles.cameraCard}
@@ -279,44 +276,11 @@ export default function HomeScreen() {
           <View style={styles.cameraCardRight}>
             <Text style={styles.cameraCardTitle}>拍照识别题目</Text>
             <Text style={styles.cameraCardDesc}>
-              {dailyStats.remainingSearches > 0
-                ? `自动识别并搜索答案 · 剩余${dailyStats.remainingSearches}次`
-                : '今日搜题次数已用完'}
+              自动识别并搜索答案
             </Text>
           </View>
           <FontAwesome6 name="arrow-right" size={18} color="#B2BEC3" />
         </TouchableOpacity>
-
-        {/* Recent Searches */}
-        {recentSearches.length > 0 && (
-          <>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>最近搜过</Text>
-              <TouchableOpacity onPress={() => router.push('/question-search')}>
-                <Text style={styles.seeAllText}>查看全部</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.recentScrollContent}
-            >
-              {recentSearches.slice(0, 5).map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.recentChip}
-                  onPress={() => router.push('/question-search')}
-                >
-                  <View style={[styles.recentChipDot, { backgroundColor: item.subjectColor }]} />
-                  <Text style={styles.recentChipSubject}>{item.subject}</Text>
-                  <Text style={styles.recentChipContent} numberOfLines={1}>
-                    {item.content}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </>
-        )}
       </ScrollView>
     </Screen>
   );

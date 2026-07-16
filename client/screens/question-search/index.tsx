@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  TextInput,
 } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
@@ -19,29 +20,44 @@ const { width } = Dimensions.get('window');
 type BottomTab = 'home' | 'search' | 'bank' | 'profile';
 
 export default function QuestionSearchScreen() {
-  const router = useSafeRouter();
+  const router = useSafeRouter(); 
   const insets = useSafeAreaInsets();
-  const { dailyStats, recentSearches } = useSearch();
+  const { recentSearches, dailyStats } = useSearch();
   const [activeTab, setActiveTab] = useState<BottomTab>('home');
+  const [currentView, setCurrentView] = useState<'search' | 'bank'>('search');
 
   const today = new Date();
   const dateStr = `${today.getMonth() + 1}月${today.getDate()}日`;
 
+  // 获取今天的搜索记录（只显示最近5条）
+  const todaySearches = recentSearches.filter(item => item.date === dateStr);
+  const displaySearches = todaySearches.slice(0, 5);
+
   return (
     <Screen safeAreaEdges={['left', 'right']} backgroundColor="#FFF8F0">
       <View style={[styles.container, { paddingTop: insets.top }]}>
+
         <View style={styles.topHeader}>
-          <Text style={styles.topTitle}>学习小达人</Text>
-          <View style={styles.avatarPlaceholder}>
-            <FontAwesome6 name="user" size={20} color="#D4C5A9" />
-          </View>
-        </View>
+  <TouchableOpacity
+    onPress={() => router.back()}
+    style={styles.backButton}
+    activeOpacity={0.7}
+  >
+    <FontAwesome6 name="arrow-left" size={20} color="#2D3436" />
+  </TouchableOpacity>
+  <Text style={styles.topTitle}>学习小达人</Text>
+  <View style={styles.avatarPlaceholder}>
+    <FontAwesome6 name="user" size={20} color="#D4C5A9" />
+  </View>
+</View>
 
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingBottom: 80 }}
           showsVerticalScrollIndicator={false}
         >
+          {currentView === 'search' ? (
+            <>
           <View style={styles.dualCardsRow}>
             <TouchableOpacity
               activeOpacity={0.8}
@@ -63,7 +79,6 @@ export default function QuestionSearchScreen() {
                 </View>
               </LinearGradient>
             </TouchableOpacity>
-
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => router.push('/camera', { mode: 'calc' })}
@@ -130,22 +145,26 @@ export default function QuestionSearchScreen() {
               <View style={styles.historyHeaderLeft}>
                 <FontAwesome6 name="clock" size={14} color="#636E72" />
                 <Text style={styles.historyTitle}>最近搜过</Text>
+                <Text style={styles.historyCount}>（今日{todaySearches.length}次）</Text>
               </View>
-              {recentSearches.length > 0 && (
-                <TouchableOpacity>
+              {todaySearches.length > 0 && (
+                <TouchableOpacity onPress={() => {
+                  setCurrentView('bank');
+                  setActiveTab('bank');
+                }}>
                   <Text style={styles.historyViewAll}>查看全部 →</Text>
                 </TouchableOpacity>
               )}
             </View>
 
-            {recentSearches.length === 0 ? (
+            {todaySearches.length === 0 ? (
               <View style={styles.emptyHistory}>
                 <FontAwesome6 name="magnifying-glass" size={32} color="#DFE6E9" />
                 <Text style={styles.emptyHistoryText}>还没有搜过题目哦</Text>
                 <Text style={styles.emptyHistorySubtext}>点击上方"拍题搜题"开始吧</Text>
               </View>
             ) : (
-              recentSearches.slice(0, 5).map((item) => (
+              displaySearches.map((item) => (
                 <View key={item.id} style={styles.historyItem}>
                   <View style={styles.historyItemHeader}>
                     <View style={[styles.historySubjectTag, { backgroundColor: item.subjectColor }]}>
@@ -162,6 +181,10 @@ export default function QuestionSearchScreen() {
               ))
             )}
           </View>
+            </>
+          ) : (
+            <QuestionBankContent recentSearches={recentSearches} dailyStats={dailyStats} />
+          )}
         </ScrollView>
 
         <View style={[styles.bottomNav, { paddingBottom: insets.bottom + 8 }]}>
@@ -174,12 +197,20 @@ export default function QuestionSearchScreen() {
             <TouchableOpacity
               key={tab.key}
               style={styles.bottomNavItem}
-              onPress={() => {
-                setActiveTab(tab.key);
-                if (tab.key === 'search') router.push('/camera');
-                if (tab.key === 'bank') router.push('/courses');
-                if (tab.key === 'profile') router.push('/profile');
-              }}
+onPress={() => {
+  setActiveTab(tab.key);
+if (tab.key === 'home') {
+  setCurrentView('search');
+  setActiveTab('home');
+} else if (tab.key === 'search') {
+  router.push('/camera');
+} else if (tab.key === 'bank') {
+  setCurrentView('bank');
+} else if (tab.key === 'profile') {
+  router.push('/profile');
+}
+
+}}
             >
               <FontAwesome6
                 name={tab.icon}
@@ -206,6 +237,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFF8F0',
   },
+  backButton: {
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+  backgroundColor: '#F0F0F3',
+  alignItems: 'center',
+  justifyContent: 'center',
+},
 
   topHeader: {
     flexDirection: 'row',
@@ -389,6 +428,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#2D3436',
   },
+  historyCount: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#636E72',
+  },
   historyViewAll: {
     fontSize: 13,
     fontWeight: '600',
@@ -475,5 +519,333 @@ const styles = StyleSheet.create({
   bottomNavLabel: {
     fontSize: 10,
     fontWeight: '600',
+  },
+});
+
+function QuestionBankContent({ recentSearches, dailyStats }: { recentSearches: any[], dailyStats: any }) {
+  const [activeSubject, setActiveSubject] = useState('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'favorite' | 'wrong'>('all');
+  const [searchText, setSearchText] = useState('');
+
+  const today = new Date();
+  const dateStr = `${today.getMonth() + 1}月${today.getDate()}日`;
+
+  const filteredBySubject = useMemo(() => {
+    if (activeSubject === 'all') return recentSearches;
+    return recentSearches.filter(item => item.subject === activeSubject);
+  }, [recentSearches, activeSubject]);
+
+  const filteredByFilter = useMemo(() => {
+    if (activeFilter === 'all') return filteredBySubject;
+    if (activeFilter === 'favorite') return filteredBySubject.filter(item => item.isFavorite);
+    if (activeFilter === 'wrong') return filteredBySubject.filter(item => item.isWrong);
+    return filteredBySubject;
+  }, [filteredBySubject, activeFilter]);
+
+  const finalFiltered = useMemo(() => {
+    if (!searchText.trim()) return filteredByFilter;
+    return filteredByFilter.filter(item =>
+      item.content.toLowerCase().includes(searchText.toLowerCase()) ||
+      item.answer.toLowerCase().includes(searchText.toLowerCase())
+    );
+  }, [filteredByFilter, searchText]);
+
+  const todaySearches = finalFiltered.filter((item: any) => item.date === dateStr);
+  const historySearches = finalFiltered.filter((item: any) => item.date !== dateStr);
+
+  const favoriteCount = recentSearches.filter((item: any) => item.isFavorite).length;
+  const wrongCount = recentSearches.filter((item: any) => item.isWrong).length;
+
+  return (
+    <>
+      <View style={bankStyles.header}>
+        <Text style={bankStyles.title}>我的题库</Text>
+        <Text style={bankStyles.subtitle}>
+          今日搜题: {dailyStats.searchCount}次 | 剩余: {dailyStats.remainingSearches}次
+        </Text>
+      </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={bankStyles.subjectScroll}>
+        {subjectFilterOptions.map(subject => (
+          <TouchableOpacity
+            key={subject.id}
+            onPress={() => setActiveSubject(subject.id)}
+            style={[
+              bankStyles.subjectChip,
+              activeSubject === subject.id && bankStyles.subjectChipActive,
+            ]}
+          >
+            <Text style={[
+              bankStyles.subjectChipText,
+              activeSubject === subject.id && bankStyles.subjectChipTextActive,
+            ]}>
+              {subject.name}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      <View style={bankStyles.filterRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={bankStyles.filterContainer}>
+            <TouchableOpacity
+              onPress={() => setActiveFilter('all')}
+              style={[bankStyles.filterChip, activeFilter === 'all' && bankStyles.filterChipActive]}
+            >
+              <FontAwesome6 name="layer-group" size={12} color={activeFilter === 'all' ? '#FFF' : '#636E72'} />
+              <Text style={[bankStyles.filterChipText, activeFilter === 'all' && bankStyles.filterChipTextActive]}>
+                全部 ({finalFiltered.length})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setActiveFilter('favorite')}
+              style={[bankStyles.filterChip, activeFilter === 'favorite' && bankStyles.filterChipActive]}
+            >
+              <FontAwesome6 name="star" size={12} color={activeFilter === 'favorite' ? '#FFF' : '#FFA502'} />
+              <Text style={[bankStyles.filterChipText, activeFilter === 'favorite' && bankStyles.filterChipTextActive]}>
+                收藏 ({favoriteCount})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setActiveFilter('wrong')}
+              style={[bankStyles.filterChip, activeFilter === 'wrong' && bankStyles.filterChipActive]}
+            >
+              <FontAwesome6 name="xmark" size={12} color={activeFilter === 'wrong' ? '#FFF' : '#FF4757'} />
+              <Text style={[bankStyles.filterChipText, activeFilter === 'wrong' && bankStyles.filterChipTextActive]}>
+                错题 ({wrongCount})
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+        <TouchableOpacity style={bankStyles.exportBtn}>
+          <FontAwesome6 name="download" size={14} color="#6C63FF" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={bankStyles.searchBar}>
+        <FontAwesome6 name="magnifying-glass" size={16} color="#B2BEC3" />
+        <TextInput
+          style={bankStyles.searchInput}
+          placeholder="搜索题目..."
+          placeholderText="#B2BEC3"
+          value={searchText}
+          onChangeText={setSearchText}
+        />
+      </View>
+
+      {finalFiltered.length === 0 ? (
+        <View style={bankStyles.emptyState}>
+          <FontAwesome6 name="folder-open" size={60} color="#DFE6E9" />
+          <Text style={bankStyles.emptyTitle}>暂无题目</Text>
+          <Text style={bankStyles.emptySubtitle}>快去拍照搜题吧！</Text>
+        </View>
+      ) : (
+        <>
+          {todaySearches.length > 0 && (
+            <View>
+              <Text style={bankStyles.sectionTitle}>今日搜题（{todaySearches.length}）</Text>
+              {todaySearches.map((item: any) => (
+                <View key={item.id} style={bankStyles.questionCard}>
+                  <View style={bankStyles.questionHeader}>
+                    <View style={[bankStyles.questionBadge, { backgroundColor: item.subjectColor + '20' }]}>
+                      <Text style={[bankStyles.questionSubject, { color: item.subjectColor }]}>{item.subject}</Text>
+                    </View>
+                    <Text style={bankStyles.questionDate}>{item.date}</Text>
+                  </View>
+                  <Text style={bankStyles.questionContent}>{item.content}</Text>
+                  <Text style={bankStyles.questionAnswer}>答案：{item.answer}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {historySearches.length > 0 && (
+            <View>
+              <Text style={bankStyles.sectionTitle}>历史搜题</Text>
+              {historySearches.map((item: any) => (
+                <View key={item.id} style={bankStyles.questionCard}>
+                  <View style={bankStyles.questionHeader}>
+                    <View style={[bankStyles.questionBadge, { backgroundColor: item.subjectColor + '20' }]}>
+                      <Text style={[bankStyles.questionSubject, { color: item.subjectColor }]}>{item.subject}</Text>
+                    </View>
+                    <Text style={bankStyles.questionDate}>{item.date}</Text>
+                  </View>
+                  <Text style={bankStyles.questionContent}>{item.content}</Text>
+                  <Text style={bankStyles.questionAnswer}>答案：{item.answer}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+const subjectFilterOptions = [
+  { id: 'all', name: '全部' },
+  { id: '数学', name: '数学' },
+  { id: '语文', name: '语文' },
+  { id: '英语', name: '英语' },
+  { id: '物理', name: '物理' },
+  { id: '化学', name: '化学' },
+];
+
+const bankStyles = StyleSheet.create({
+  header: {
+    padding: 20,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#2D3436',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#636E72',
+  },
+  subjectScroll: {
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  subjectChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 25,
+    backgroundColor: '#F0F0F3',
+    marginRight: 10,
+  },
+  subjectChipActive: {
+    backgroundColor: '#6C63FF',
+  },
+  subjectChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#636E72',
+  },
+  subjectChipTextActive: {
+    color: '#FFFFFF',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    flex: 1,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F0F0F3',
+    marginRight: 10,
+    gap: 6,
+  },
+  filterChipActive: {
+    backgroundColor: '#FF6584',
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#636E72',
+  },
+  filterChipTextActive: {
+    color: '#FFFFFF',
+  },
+  exportBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F0F0F3',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: '#F0F0F3',
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#2D3436',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#636E72',
+    marginTop: 12,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#B2BEC3',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#2D3436',
+    marginBottom: 12,
+    marginTop: 8,
+    paddingHorizontal: 20,
+  },
+  questionCard: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#F0F0F3',
+  },
+  questionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  questionBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  questionSubject: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  questionDate: {
+    fontSize: 12,
+    color: '#B2BEC3',
+  },
+  questionContent: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#2D3436',
+    lineHeight: 22,
+    marginBottom: 8,
+  },
+  questionAnswer: {
+    fontSize: 13,
+    color: '#00B894',
+    lineHeight: 20,
   },
 });
