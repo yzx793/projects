@@ -123,8 +123,18 @@ export default function QuestionsScreen() {
       const res = await fetch(url);
       const json = await res.json();
       if (json.code === 0) {
-        setQuestions(json.data.questions);
-        setGradeCounts(json.data.gradeCounts);
+        setQuestions(json.data.questions || []);
+        // Use stats for display
+        if (json.data.stats) {
+          const counts = (json.data.stats.bySubject || []).map((s: any) => ({
+            grade: s.subject,
+            gradeName: s.subjectName,
+            count: s.count,
+          }));
+          setGradeCounts(counts);
+        } else {
+          setGradeCounts([]);
+        }
       }
     } catch (e) {
       console.error('Failed to fetch questions:', e);
@@ -294,7 +304,7 @@ export default function QuestionsScreen() {
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{gradeCounts.length}</Text>
-            <Text style={styles.statLabel}>年级分布</Text>
+            <Text style={styles.statLabel}>学科分布</Text>
           </View>
         </View>
 
