@@ -88,6 +88,19 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="questions"
+        options={{
+          title: '题库',
+          tabBarIcon: ({ color, focused }) => (
+            <FontAwesome6
+              name={focused ? 'database' : 'database'}
+              size={20}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: '我的',

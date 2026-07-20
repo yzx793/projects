@@ -627,7 +627,7 @@ function QuestionBankContent({ recentSearches, dailyStats }: { recentSearches: a
         <TextInput
           style={bankStyles.searchInput}
           placeholder="搜索题目..."
-          placeholderText="#B2BEC3"
+          placeholderTextColor="#B2BEC3"
           value={searchText}
           onChangeText={setSearchText}
         />

@@ -186,17 +186,6 @@ export default function CoursesScreen() {
           </View>
         )}
 
-        {/* Math Upload Button */}
-        {activeSubject === 'math' && (
-          <TouchableOpacity 
-            style={styles.uploadBtn}
-            onPress={() => router.push('/course-upload')}
-          >
-            <FontAwesome6 name="upload" size={20} color="#FFF" />
-            <Text style={styles.uploadBtnText}>上传课程</Text>
-          </TouchableOpacity>
-        )}
-
         {/* Search Guide for Chinese/English */}
         {(activeSubject === 'chinese' || activeSubject === 'english') && (
           <View style={styles.searchGuideContainer}>
