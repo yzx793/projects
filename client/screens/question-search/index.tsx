@@ -644,7 +644,7 @@ function QuestionBankContent({ recentSearches, dailyStats }: { recentSearches: a
           <Text style={bankStyles.emptySubtitle}>快去拍照搜题吧！</Text>
         </View>
       ) : (
-        <>
+        <View>
           {todaySearches.length > 0 && (
             <View>
               <Text style={bankStyles.sectionTitle}>今日搜题（{todaySearches.length}）</Text>
@@ -680,7 +680,7 @@ function QuestionBankContent({ recentSearches, dailyStats }: { recentSearches: a
               ))}
             </View>
           )}
-        </>
+        </View>
       )}
     </>
   );
