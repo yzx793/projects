@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Platform, View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Platform, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useCSSVariable } from 'uniwind';
@@ -71,8 +71,6 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
     </View>
   );
 }
-
-import { Text } from 'react-native';
 
 export default function TabLayout() {
   return (
