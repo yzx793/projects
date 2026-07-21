@@ -557,7 +557,7 @@ function QuestionBankContent({ recentSearches, dailyStats }: { recentSearches: a
   const wrongCount = recentSearches.filter((item: any) => item.isWrong).length;
 
   return (
-    <>
+    <View style={{ flex: 1 }}>
       <View style={bankStyles.header}>
         <Text style={bankStyles.title}>我的题库</Text>
         <Text style={bankStyles.subtitle}>
@@ -578,47 +578,47 @@ function QuestionBankContent({ recentSearches, dailyStats }: { recentSearches: a
             >
               <Text style={[
                 bankStyles.subjectChipText,
-              activeSubject === subject.id && bankStyles.subjectChipTextActive,
-            ]}>
-              {subject.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
+                activeSubject === subject.id && bankStyles.subjectChipTextActive,
+              ]}>
+                {subject.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </ScrollView>
       </View>
 
       <View style={bankStyles.filterRow}>
-        <View style={{ flexDirection: 'row' }}>
+        <View style={{ flexDirection: 'row', flex: 1 }}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={bankStyles.filterContainer}>
-            <TouchableOpacity
-              onPress={() => setActiveFilter('all')}
-              style={[bankStyles.filterChip, activeFilter === 'all' && bankStyles.filterChipActive]}
-            >
-              <FontAwesome6 name="layer-group" size={12} color={activeFilter === 'all' ? '#FFF' : '#636E72'} />
-              <Text style={[bankStyles.filterChipText, activeFilter === 'all' && bankStyles.filterChipTextActive]}>
-                全部 ({finalFiltered.length})
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setActiveFilter('favorite')}
-              style={[bankStyles.filterChip, activeFilter === 'favorite' && bankStyles.filterChipActive]}
-            >
-              <FontAwesome6 name="star" size={12} color={activeFilter === 'favorite' ? '#FFF' : '#FFA502'} />
-              <Text style={[bankStyles.filterChipText, activeFilter === 'favorite' && bankStyles.filterChipTextActive]}>
-                收藏 ({favoriteCount})
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setActiveFilter('wrong')}
-              style={[bankStyles.filterChip, activeFilter === 'wrong' && bankStyles.filterChipActive]}
-            >
-              <FontAwesome6 name="xmark" size={12} color={activeFilter === 'wrong' ? '#FFF' : '#FF4757'} />
-              <Text style={[bankStyles.filterChipText, activeFilter === 'wrong' && bankStyles.filterChipTextActive]}>
-                错题 ({wrongCount})
-              </Text>
-            </TouchableOpacity>
-          </View>
+            <View style={bankStyles.filterContainer}>
+              <TouchableOpacity
+                onPress={() => setActiveFilter('all')}
+                style={[bankStyles.filterChip, activeFilter === 'all' && bankStyles.filterChipActive]}
+              >
+                <FontAwesome6 name="layer-group" size={12} color={activeFilter === 'all' ? '#FFF' : '#636E72'} />
+                <Text style={[bankStyles.filterChipText, activeFilter === 'all' && bankStyles.filterChipTextActive]}>
+                  全部 ({finalFiltered.length})
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setActiveFilter('favorite')}
+                style={[bankStyles.filterChip, activeFilter === 'favorite' && bankStyles.filterChipActive]}
+              >
+                <FontAwesome6 name="star" size={12} color={activeFilter === 'favorite' ? '#FFF' : '#FFA502'} />
+                <Text style={[bankStyles.filterChipText, activeFilter === 'favorite' && bankStyles.filterChipTextActive]}>
+                  收藏 ({favoriteCount})
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setActiveFilter('wrong')}
+                style={[bankStyles.filterChip, activeFilter === 'wrong' && bankStyles.filterChipActive]}
+              >
+                <FontAwesome6 name="xmark" size={12} color={activeFilter === 'wrong' ? '#FFF' : '#FF4757'} />
+                <Text style={[bankStyles.filterChipText, activeFilter === 'wrong' && bankStyles.filterChipTextActive]}>
+                  错题 ({wrongCount})
+                </Text>
+              </TouchableOpacity>
+            </View>
           </ScrollView>
         </View>
         <TouchableOpacity style={bankStyles.exportBtn}>
@@ -644,7 +644,7 @@ function QuestionBankContent({ recentSearches, dailyStats }: { recentSearches: a
           <Text style={bankStyles.emptySubtitle}>快去拍照搜题吧！</Text>
         </View>
       ) : (
-        <View>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 20 }}>
           {todaySearches.length > 0 && (
             <View>
               <Text style={bankStyles.sectionTitle}>今日搜题（{todaySearches.length}）</Text>
@@ -680,9 +680,9 @@ function QuestionBankContent({ recentSearches, dailyStats }: { recentSearches: a
               ))}
             </View>
           )}
-        </View>
+        </ScrollView>
       )}
-    </>
+    </View>
   );
 }
 
