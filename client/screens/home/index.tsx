@@ -237,9 +237,7 @@ export default function HomeScreen() {
                   style={[
                     styles.completeBtn,
                     task.completed && styles.completeBtnDone,
-                    !task.completed && {
-                      backgroundColor: 'transparent',
-                    },
+                    !task.completed && styles.goBtn,
                   ]}
                   onPress={() => !task.completed && handleCompleteTask(task.id)}
                   disabled={task.completed}
@@ -247,8 +245,9 @@ export default function HomeScreen() {
                   {task.completed ? (
                     <FontAwesome6 name="circle-check" size={28} color="#00B894" />
                   ) : (
-                    <View style={styles.completeBtnCircle}>
-                      <FontAwesome6 name="circle-xmark" size={28} color="#B2BEC3" />
+                    <View style={styles.goBtnContent}>
+                      <Text style={styles.goBtnText}>去完成</Text>
+                      <FontAwesome6 name="chevron-right" size={12} color="#6C63FF" />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -483,7 +482,23 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   completeBtnDone: {},
-  completeBtnCircle: {},
+  goBtn: {
+    backgroundColor: '#6C63FF20',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  goBtnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  goBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6C63FF',
+  },
+
   cameraCard: {
     flexDirection: 'row',
     alignItems: 'center',

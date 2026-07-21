@@ -161,7 +161,7 @@ export default function QuestionSearchScreen() {
               <View style={styles.emptyHistory}>
                 <FontAwesome6 name="magnifying-glass" size={32} color="#DFE6E9" />
                 <Text style={styles.emptyHistoryText}>还没有搜过题目哦</Text>
-                <Text style={styles.emptyHistorySubtext}>点击上方"拍题搜题"开始吧</Text>
+                <Text style={styles.emptyHistorySubtext}>点击上方「拍题搜题」开始吧</Text>
               </View>
             ) : (
               displaySearches.map((item) => (
@@ -565,28 +565,31 @@ function QuestionBankContent({ recentSearches, dailyStats }: { recentSearches: a
         </Text>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={bankStyles.subjectScroll}>
-        {subjectFilterOptions.map(subject => (
-          <TouchableOpacity
-            key={subject.id}
-            onPress={() => setActiveSubject(subject.id)}
-            style={[
-              bankStyles.subjectChip,
-              activeSubject === subject.id && bankStyles.subjectChipActive,
-            ]}
-          >
-            <Text style={[
-              bankStyles.subjectChipText,
+      <View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={bankStyles.subjectScroll}>
+          {subjectFilterOptions.map(subject => (
+            <TouchableOpacity
+              key={subject.id}
+              onPress={() => setActiveSubject(subject.id)}
+              style={[
+                bankStyles.subjectChip,
+                activeSubject === subject.id && bankStyles.subjectChipActive,
+              ]}
+            >
+              <Text style={[
+                bankStyles.subjectChipText,
               activeSubject === subject.id && bankStyles.subjectChipTextActive,
             ]}>
               {subject.name}
             </Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+        </ScrollView>
+      </View>
 
       <View style={bankStyles.filterRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={{ flexDirection: 'row' }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={bankStyles.filterContainer}>
             <TouchableOpacity
               onPress={() => setActiveFilter('all')}
@@ -616,7 +619,8 @@ function QuestionBankContent({ recentSearches, dailyStats }: { recentSearches: a
               </Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
+          </ScrollView>
+        </View>
         <TouchableOpacity style={bankStyles.exportBtn}>
           <FontAwesome6 name="download" size={14} color="#6C63FF" />
         </TouchableOpacity>

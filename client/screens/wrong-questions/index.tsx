@@ -82,6 +82,7 @@ export default function WrongQuestionsScreen() {
   const [questions, setQuestions] = useState<WrongQuestion[]>([]);
   const [activeSubject, setActiveSubject] = useState('all');
   const [activeReviewStatus, setActiveReviewStatus] = useState('all');
+  const [activeTag, setActiveTag] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [reviewStats, setReviewStats] = useState<ReviewStats>({ pending: 0, reviewing: 0, mastered: 0 });
   const [total, setTotal] = useState(0);
@@ -96,6 +97,7 @@ export default function WrongQuestionsScreen() {
       const params = new URLSearchParams();
       if (activeSubject !== 'all') params.append('subject', activeSubject);
       if (activeReviewStatus !== 'all') params.append('reviewStatus', activeReviewStatus);
+      if (activeTag) params.append('tag', activeTag);
       if (searchQuery) params.append('search', searchQuery);
 
       const queryString = params.toString() ? `?${params.toString()}` : '';
@@ -103,7 +105,7 @@ export default function WrongQuestionsScreen() {
       /**
        * 服务端文件：server/src/routes/wrongQuestions.ts
        * 接口：GET /api/v1/wrong-questions
-       * Query 参数: subject?: string, reviewStatus?: string, search?: string
+       * Query 参数: subject?: string, reviewStatus?: string, tag?: string, search?: string
        */
       const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/wrong-questions${queryString}`);
       const json = await res.json();
@@ -264,9 +266,21 @@ export default function WrongQuestionsScreen() {
         {item.tags && item.tags.length > 0 && (
           <View style={styles.tagsRow}>
             {item.tags.slice(0, 3).map(tag => (
-              <View key={tag} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
-              </View>
+              <TouchableOpacity
+                key={tag}
+                style={[
+                  styles.tag,
+                  activeTag === tag && styles.tagActive,
+                ]}
+                onPress={() => {
+                  setActiveTag(activeTag === tag ? null : tag);
+                }}
+              >
+                <Text style={[
+                  styles.tagText,
+                  activeTag === tag && styles.tagTextActive,
+                ]}>{tag}</Text>
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -400,6 +414,17 @@ export default function WrongQuestionsScreen() {
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* Active Tag Filter Indicator */}
+      {activeTag && (
+        <View style={styles.activeTagFilter}>
+          <FontAwesome6 name="tag" size={12} color="#6C63FF" />
+          <Text style={styles.activeTagFilterText}>标签筛选: {activeTag}</Text>
+          <TouchableOpacity onPress={() => setActiveTag(null)}>
+            <FontAwesome6 name="xmark" size={14} color="#636E72" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Practice Button */}
       <TouchableOpacity
@@ -578,6 +603,22 @@ const styles = StyleSheet.create({
   statusChipTextActive: {
     color: '#6C63FF',
   },
+  activeTagFilter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#F0F0FF',
+    borderRadius: 8,
+    marginHorizontal: 20,
+    marginTop: 8,
+  },
+  activeTagFilterText: {
+    fontSize: 12,
+    color: '#6C63FF',
+    flex: 1,
+  },
   practiceButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -724,6 +765,13 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: 11,
     color: '#636E72',
+  },
+  tagActive: {
+    backgroundColor: '#6C63FF',
+  },
+  tagTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   quickActions: {
     flexDirection: 'row',

@@ -4,9 +4,9 @@ import { wrongQuestions } from '../data/mockData.js';
 const router = Router();
 
 // GET /api/v1/wrong-questions - 获取错题列表
-// Query 参数: subject?: string, solved?: boolean, reviewStatus?: string, search?: string
+// Query 参数: subject?: string, solved?: boolean, reviewStatus?: string, search?: string, tag?: string
 router.get('/', (req, res) => {
-  const { subject, solved, reviewStatus, search } = req.query;
+  const { subject, solved, reviewStatus, search, tag } = req.query;
   let filtered = [...wrongQuestions];
 
   if (subject && subject !== 'all') {
@@ -22,13 +22,17 @@ router.get('/', (req, res) => {
     filtered = filtered.filter(q => q.reviewStatus === reviewStatus);
   }
 
+  if (tag && tag !== 'all') {
+    filtered = filtered.filter(q => q.tags.includes(String(tag)));
+  }
+
   if (search) {
     const keyword = String(search).toLowerCase();
     filtered = filtered.filter(q =>
       q.title.toLowerCase().includes(keyword) ||
       q.question.toLowerCase().includes(keyword) ||
       q.knowledgePoint.toLowerCase().includes(keyword) ||
-      q.tags.some(tag => tag.toLowerCase().includes(keyword))
+      q.tags.some(t => t.toLowerCase().includes(keyword))
     );
   }
 

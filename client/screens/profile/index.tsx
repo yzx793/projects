@@ -117,10 +117,10 @@ export default function ProfileScreen() {
   const maxWeeklyHours = Math.max(...stats.weeklyStudyHours);
   const expProgress = Math.round((profile.exp / profile.nextLevelExp) * 100);
 
-  const trendIcons: Record<string, { icon: string; color: string }> = {
-    up: { icon: 'arrow-trend-up', color: '#00B894' },
-    down: { icon: 'arrow-trend-down', color: '#FF6584' },
-    stable: { icon: 'minus', color: '#636E72' },
+  const trendIcons: Record<string, { icon: string; color: string; label: string }> = {
+    up: { icon: 'arrow-trend-up', color: '#00B894', label: '↑' },
+    down: { icon: 'arrow-trend-down', color: '#FF6584', label: '↓' },
+    stable: { icon: 'minus', color: '#636E72', label: '→' },
   };
 
   return (
@@ -241,7 +241,10 @@ export default function ProfileScreen() {
                     />
                   </View>
                   <Text style={styles.subjectStatValue}>{subject.accuracy}%</Text>
-                  <FontAwesome6 name={trendInfo.icon as any} size={14} color={trendInfo.color} />
+                  <View style={[styles.trendIndicator, { backgroundColor: trendInfo.color + '20' }]}>
+                    <Text style={[styles.trendLabel, { color: trendInfo.color }]}>{trendInfo.label}</Text>
+                    <FontAwesome6 name={trendInfo.icon as any} size={12} color={trendInfo.color} />
+                  </View>
                 </View>
               </View>
             </View>
@@ -497,6 +500,19 @@ const styles = StyleSheet.create({
     color: '#6C63FF',
     width: 40,
     textAlign: 'right',
+  },
+  trendIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    gap: 2,
+    marginLeft: 4,
+  },
+  trendLabel: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   badgesGrid: {
     flexDirection: 'row',

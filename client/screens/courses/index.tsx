@@ -164,7 +164,7 @@ export default function CoursesScreen() {
         {(activeSubject === 'chinese' || activeSubject === 'english') && (
           <View style={styles.searchContainer}>
             <View style={styles.searchWrapper}>
-              <FontAwesome6 name="search" size={16} color="#B2BEC3" />
+              <FontAwesome6 name="magnifying-glass" size={16} color="#B2BEC3" />
               <TextInput
                 style={styles.searchInput}
                 placeholder={activeSubject === 'chinese' ? '输入古诗词标题...' : '输入单词...'}
@@ -190,7 +190,11 @@ export default function CoursesScreen() {
         {(activeSubject === 'chinese' || activeSubject === 'english') && (
           <View style={styles.searchGuideContainer}>
             <View style={[styles.searchGuideIcon, { backgroundColor: `${subjectColors[activeSubject]}15` }]}>
-              <FontAwesome6 name="search" size={32} color={subjectColors[activeSubject]} />
+              <FontAwesome6 
+                name={activeSubject === 'chinese' ? 'book-open' : 'language'} 
+                size={32} 
+                color={subjectColors[activeSubject]} 
+              />
             </View>
             <Text style={styles.searchGuideTitle}>
               {activeSubject === 'chinese' ? '古诗词学习' : '英语单词学习'}
@@ -200,6 +204,14 @@ export default function CoursesScreen() {
                 ? '在上方搜索框输入古诗词标题，即可查看原文、译文和赏析' 
                 : '在上方搜索框输入单词，即可查看释义、例句和词形变化'}
             </Text>
+            <View style={styles.searchHintContainer}>
+              <FontAwesome6 name="lightbulb" size={14} color="#F39C12" />
+              <Text style={styles.searchHintText}>
+                {activeSubject === 'chinese' 
+                  ? '试试搜索"静夜思"、"春晓"或"李白"' 
+                  : 'Try searching "apple", "run" or "beautiful"'}
+              </Text>
+            </View>
             <TouchableOpacity
               style={[styles.aiChatBtn, { backgroundColor: subjectColors[activeSubject] }]}
               onPress={() => router.push('/ai-chat', { mode: activeSubject === 'chinese' ? 'chinese' : 'english' })}
@@ -529,6 +541,22 @@ const styles = StyleSheet.create({
     color: '#636E72',
     textAlign: 'center',
     lineHeight: 22,
+  },
+  searchHintContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#FFF9E6',
+    borderRadius: 8,
+  },
+  searchHintText: {
+    fontSize: 12,
+    color: '#F39C12',
+    fontStyle: 'italic',
   },
   aiChatBtn: {
     flexDirection: 'row',

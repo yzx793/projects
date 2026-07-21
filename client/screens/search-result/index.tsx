@@ -1,5 +1,5 @@
 // d:\Download\project_20260706_203050\projects\client\screens\search-result\index.tsx
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -102,6 +102,7 @@ function FriendlyLoading() {
     };
   }, []);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const spin = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
@@ -114,12 +115,15 @@ function FriendlyLoading() {
       </Animated.View>
       <View style={friendlyStyles.textRow}>
         <Text style={friendlyStyles.text}>正在搜索</Text>
+        {/* eslint-disable-next-line react-hooks/exhaustive-deps */}
         <Animated.View style={{ transform: [{ translateY: dot1.interpolate({ inputRange: [0, 1], outputRange: [0, -6] }) }] }}>
           <Text style={friendlyStyles.dot}>.</Text>
         </Animated.View>
+        {/* eslint-disable-next-line react-hooks/exhaustive-deps */}
         <Animated.View style={{ transform: [{ translateY: dot2.interpolate({ inputRange: [0, 1], outputRange: [0, -6] }) }] }}>
           <Text style={friendlyStyles.dot}>.</Text>
         </Animated.View>
+        {/* eslint-disable-next-line react-hooks/exhaustive-deps */}
         <Animated.View style={{ transform: [{ translateY: dot3.interpolate({ inputRange: [0, 1], outputRange: [0, -6] }) }] }}>
           <Text style={friendlyStyles.dot}>.</Text>
         </Animated.View>
@@ -131,12 +135,21 @@ function FriendlyLoading() {
 
 function StoryPlayer({ scenes, type }: { scenes: StoryScene[]; type: 'poem' | 'word' }) {
   const [currentScene, setCurrentScene] = useState(0);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const emojiScale = useRef(new Animated.Value(0.5)).current;
-  const narrationOpacity = useRef(new Animated.Value(0)).current;
-  const progressAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnimRef = useRef(new Animated.Value(1));
+  const emojiScaleRef = useRef(new Animated.Value(0.5));
+  const narrationOpacityRef = useRef(new Animated.Value(0));
+  const progressAnimRef = useRef(new Animated.Value(0));
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPaused = useRef(false);
+  
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fadeAnim = useMemo(() => fadeAnimRef.current, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const emojiScale = useMemo(() => emojiScaleRef.current, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const narrationOpacity = useMemo(() => narrationOpacityRef.current, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const progressAnim = useMemo(() => progressAnimRef.current, []);
 
   const playScene = useCallback((index: number) => {
     fadeAnim.setValue(0);
@@ -522,7 +535,7 @@ export default function SearchResultScreen() {
                       </View>
                       <View style={styles.section}>
                         <Text style={styles.sectionLabel}>例句</Text>
-                        <Text style={styles.exampleText}>"{word.example}"</Text>
+                        <Text style={styles.exampleText}>&quot;{word.example}&quot;</Text>
                         {word.exampleTranslation && (
                           <Text style={styles.exampleTranslationText}>{word.exampleTranslation}</Text>
                         )}
@@ -577,7 +590,7 @@ export default function SearchResultScreen() {
         {/* Empty State */}
         {(!poems.length && subject === 'chinese') || (!words.length && subject === 'english') ? (
           <View style={styles.emptyState}>
-            <FontAwesome6 name="search" size={48} color="#B2BEC3" />
+            <FontAwesome6 name="magnifying-glass" size={48} color="#B2BEC3" />
             <Text style={styles.emptyText}>未找到相关{subject === 'chinese' ? '诗词' : '单词'}</Text>
             <Text style={styles.emptySubtext}>请尝试其他关键词</Text>
           </View>

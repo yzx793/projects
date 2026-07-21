@@ -70,7 +70,7 @@ export default function AIChatScreen() {
       const reader = res.body?.getReader();
       if (!reader) return;
 
-      let aiResponseId = `ai-${Date.now()}`;
+      const aiResponseId = `ai-${Date.now()}`;
       let accumulatedContent = '';
 
       while (true) {
@@ -225,7 +225,7 @@ export default function AIChatScreen() {
             onPress={handleSend}
             disabled={!inputText.trim() || isLoading}
           >
-            <FontAwesome6 name="send" size={18} color="#FFF" />
+            <FontAwesome6 name="paper-plane" size={18} color="#FFF" />
           </TouchableOpacity>
         </View>
       </View>

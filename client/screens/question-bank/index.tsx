@@ -135,7 +135,7 @@ export default function QuestionBankScreen() {
           </View>
 
           <View style={styles.searchContainer}>
-            <FontAwesome6 name="search" size={16} color="#B2BEC3" />
+            <FontAwesome6 name="magnifying-glass" size={16} color="#B2BEC3" />
             <TextInput
               style={styles.searchInput}
               placeholder="搜索题目..."

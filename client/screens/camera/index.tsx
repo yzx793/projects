@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Image, StatusBar, ScrollView, Animated, Dimensions } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter, useSafeSearchParams } from '@/hooks/useSafeRouter';
@@ -88,9 +88,12 @@ function CalcAnalyzingView({ imageUri, insets, themeColor }: { imageUri: string;
     createDotLoop(dot3, 300).start();
   }, []);
 
-  const spin = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  const pulseScale = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.15] });
-  const pulseOpacity = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const spin = useMemo(() => spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }), [spinAnim]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const pulseScale = useMemo(() => pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.15] }), [pulseAnim]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const pulseOpacity = useMemo(() => pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }), [pulseAnim]);
 
   return (
     <View style={styles.container}>
@@ -181,8 +184,11 @@ function AnalyzingView({ imageUri, insets, themeColor }: { imageUri: string; ins
     createDotLoop(dot3, 300).start();
   }, []);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const spin = spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const pulseScale = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.15] });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const pulseOpacity = pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] });
 
   return (
@@ -209,12 +215,15 @@ function AnalyzingView({ imageUri, insets, themeColor }: { imageUri: string; ins
 
           <View style={styles.analyzingTextRow}>
             <Text style={styles.analyzingText}>正在识别题目</Text>
+            {/* eslint-disable-next-line react-hooks/exhaustive-deps */}
             <Animated.View style={{ transform: [{ translateY: dot1.interpolate({ inputRange: [0, 1], outputRange: [0, -6] }) }] }}>
               <Text style={[styles.analyzingDot, { color: themeColor }]}>.</Text>
             </Animated.View>
+            {/* eslint-disable-next-line react-hooks/exhaustive-deps */}
             <Animated.View style={{ transform: [{ translateY: dot2.interpolate({ inputRange: [0, 1], outputRange: [0, -6] }) }] }}>
               <Text style={[styles.analyzingDot, { color: themeColor }]}>.</Text>
             </Animated.View>
+            {/* eslint-disable-next-line react-hooks/exhaustive-deps */}
             <Animated.View style={{ transform: [{ translateY: dot3.interpolate({ inputRange: [0, 1], outputRange: [0, -6] }) }] }}>
               <Text style={[styles.analyzingDot, { color: themeColor }]}>.</Text>
             </Animated.View>
