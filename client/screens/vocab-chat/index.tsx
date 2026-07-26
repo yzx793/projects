@@ -197,6 +197,33 @@ export default function VocabChatScreen() {
     }
   }, [words, playTTS]);
   
+  // 结算对话
+  const handleSettle = useCallback(async () => {
+    if (!sessionId) return;
+    
+    try {
+      /**
+       * 服务端文件：server/src/routes/vocabChat.ts
+       * 接口：POST /api/v1/vocab-chat/settle
+       * Body 参数：sessionId: string
+       */
+      const response = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/vocab-chat/settle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId }),
+      });
+      
+      const result = await response.json();
+      if (result.code === 0 && result.data) {
+        setReport(result.data);
+        setShowReport(true);
+        setIsSessionActive(false);
+      }
+    } catch (error) {
+      console.error('Failed to settle conversation:', error);
+    }
+  }, [sessionId]);
+  
   // 发送消息
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || !sessionId || isLoading) return;
@@ -258,6 +285,13 @@ export default function VocabChatScreen() {
           } else if (data.type === 'status') {
             // 更新掌握状态
             setMasteredWords(data.masteredWords || []);
+            // 检查对话是否结束
+            if (data.conversationEnd) {
+              // 延迟显示结算页面，让用户看完AI的总结
+              setTimeout(() => {
+                handleSettle();
+              }, 2000);
+            }
           }
         } catch (e) {
           // Ignore parse errors
@@ -286,7 +320,7 @@ export default function VocabChatScreen() {
       }]);
       setIsLoading(false);
     }
-  }, [sessionId, isLoading, playTTS]);
+  }, [sessionId, isLoading, playTTS, handleSettle]);
   
   // ASR 语音识别
   const startRecording = useCallback(async () => {

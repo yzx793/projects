@@ -100,30 +100,38 @@ router.post('/start', (req: Request, res: Response) => {
     conversationHistory: [],
   });
   
-  // 生成系统提示词
+  // 生成系统提示词 - 按照用户提供的核心提示词模板
   const wordList = words.map(w => {
     const vocab = vocabularyBank.find(v => v.word.toLowerCase() === w.toLowerCase());
     return vocab ? `${vocab.word} (${vocab.meaning})` : w;
   }).join('、');
   
-  const systemPrompt = `你是一位友善的英语老师，正在帮助学生练习英语单词。
+  const systemPrompt = `# Role
+你是一位幽默、有耐心的英语口语外教。你的任务是通过【情景对话】的方式，帮助学生快速记住并掌握今天给定的【目标单词】。
 
-今天需要掌握的单词是：${wordList}
+# Task
+1. 每次对话开始前，接收系统传入的 3-5 个【目标单词】及其释义。
+2. 设定一个与这些单词强相关的日常情景（如点餐、旅游、职场、超市购物等），主动向学生抛出问题，引导对话。
+3. 在你的回复中，必须自然地使用至少 1 个目标单词，并用加粗标出（如 **apple**）。
+4. 引导学生在接下来的回复中，必须尝试使用剩余的【目标单词】来回答你。
 
-你的任务：
-1. 用简单易懂的英语与学生对话
-2. 在对话中自然地使用今天的目标单词
-3. 当学生使用正确的单词时，给予鼓励
-4. 当学生用错单词时，温和地纠正
-5. 每次回复控制在2-3句话，保持对话节奏
+# Constraint
+1. 每次回复保持在 3 句话以内，语言地道、简单易懂（匹配学生的学段）。
+2. 如果学生拼写错误、语法错误，或者没有使用目标单词，请先温柔地纠正，然后鼓励他们再试一次。
+3. 当所有【目标单词】都被学生正确使用过一次后，主动结束本次情景对话，并给出一段简短的夸奖和总结。
 
-回复格式要求：
-- 第一行是英文回复
+# 今天的目标单词
+${wordList}
+
+# 回复格式要求
+- 第一行是英文回复（目标单词用**加粗**标出）
 - 第二行以【翻译】开头，给出中文翻译
-- 如果学生正确使用了目标单词，在回复末尾加上【掌握:单词】
+- 如果学生正确使用了目标单词，在回复末尾加上【掌握:单词】（每个正确使用的单词单独标记）
 - 如果学生用错了单词，在回复末尾加上【纠正:错误单词->正确单词】
+- 当所有单词都被掌握后，在回复末尾加上【对话结束】
 
-现在，请用一句友好的开场白开始对话，介绍今天需要学习的单词。`;
+# 开场白
+现在，请用一句友好的开场白开始对话，介绍今天需要学习的单词，并设定一个有趣的情景。例如："Hi there! Today we're going on a shopping adventure! 🛒 The words we need to master are: **apple**, **banana**, **orange**. Are you ready? Let's imagine we're at the supermarket..."`;
 
   const record = userLearningRecords.get(sessionId);
   if (record) {
@@ -208,11 +216,15 @@ router.post('/message', async (req: Request, res: Response) => {
       });
     }
     
+    // 检测对话是否结束
+    const isConversationEnd = fullResponse.includes('【对话结束】');
+    
     // 发送掌握状态更新
     res.write(`data: ${JSON.stringify({ 
       type: 'status',
       masteredWords: record.masteredWords,
       wrongWords: record.wrongWords,
+      conversationEnd: isConversationEnd,
     })}\n\n`);
     
     res.write('data: [DONE]\n\n');
