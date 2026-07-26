@@ -31,6 +31,7 @@ export default function RootLayout() {
         <Stack.Screen name="question-edit" />
         <Stack.Screen name="practice" />
         <Stack.Screen name="ai-chat" />
+        <Stack.Screen name="vocab-chat" />
         <Stack.Screen name="question-search" />
         <Stack.Screen name="question-bank" />
       </Stack>

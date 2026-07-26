@@ -214,7 +214,7 @@ export default function CoursesScreen() {
             </View>
             <TouchableOpacity
               style={[styles.aiChatBtn, { backgroundColor: subjectColors[activeSubject] }]}
-              onPress={() => router.push('/ai-chat', { mode: activeSubject === 'chinese' ? 'chinese' : 'english' })}
+              onPress={() => router.push(activeSubject === 'english' ? '/vocab-chat' : '/ai-chat', { mode: activeSubject === 'chinese' ? 'chinese' : 'english' })}
             >
               <FontAwesome6 name="comment" size={20} color="#FFF" />
               <Text style={styles.aiChatBtnText}>
