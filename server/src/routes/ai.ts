@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { LLMClient, Config } from 'coze-coding-dev-sdk';
+import { LLMClient, Config, TTSClient, ASRClient } from 'coze-coding-dev-sdk';
 import { wrongQuestions ,poems} from '../data/mockData.js';
+import multer from 'multer';
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 const router = Router();
 
@@ -245,6 +248,107 @@ router.post('/analyze-image', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('AI图片分析错误:', error);
     res.write(`data: ${JSON.stringify({ error: 'AI分析失败，请稍后重试' })}\n\n`);
+    res.write('data: [DONE]\n\n');
+    res.end();
+  }
+});
+
+// TTS 文字转语音
+router.post('/tts', async (req: Request, res: Response) => {
+  try {
+    const { text, language = 'zh' } = req.body;
+    if (!text) {
+      return res.status(400).json({ code: 400, message: '文本不能为空' });
+    }
+
+    const config = new Config();
+    const ttsClient = new TTSClient(config);
+    const response = await ttsClient.synthesize({
+      uid: 'user123',
+      text,
+      speaker: language === 'en' ? 'zh_female_vv_uranus_bigtts' : 'zh_female_xiaohe_uranus_bigtts',
+    });
+
+    // 下载音频并返回
+    const axios = await import('axios');
+    const audioData = await axios.default.get(response.audioUri, { responseType: 'arraybuffer' });
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.send(Buffer.from(audioData.data));
+  } catch (error) {
+    console.error('TTS错误:', error);
+    res.status(500).json({ code: 500, message: '语音合成失败' });
+  }
+});
+
+// ASR 语音转文字
+router.post('/asr', upload.single('audio'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ code: 400, message: '音频文件不能为空' });
+    }
+
+    const config = new Config();
+    const asrClient = new ASRClient(config);
+    const base64Audio = req.file.buffer.toString('base64');
+    const result = await asrClient.recognize({
+      uid: 'user123',
+      base64Data: base64Audio,
+    });
+
+    res.json({
+      code: 200,
+      data: {
+        text: result.text,
+        duration: result.duration,
+      },
+    });
+  } catch (error) {
+    console.error('ASR错误:', error);
+    res.status(500).json({ code: 500, message: '语音识别失败' });
+  }
+});
+
+// GET 聊天接口（支持 SSE）
+router.get('/chat', async (req: Request, res: Response) => {
+  const { message, mode = 'chinese' } = req.query;
+
+  if (!message || typeof message !== 'string') {
+    return res.status(400).json({ code: 400, message: '消息不能为空' });
+  }
+
+  // 设置SSE响应头
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-store, no-transform, must-revalidate');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  try {
+    const config = new Config();
+    const client = new LLMClient(config);
+
+    const systemPrompt = mode === 'english'
+      ? 'You are a friendly English tutor. Help students learn English in a fun and engaging way. Keep responses short and simple.'
+      : '你是一位专业的教育辅导AI助手，擅长为中小学生分析讲解各学科题目。请用通俗易懂的语言，适合学生理解。';
+
+    const stream = client.stream([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: message },
+    ], {
+      model: 'doubao-seed-2-0-lite-260215',
+      temperature: 0.7,
+    });
+
+    for await (const chunk of stream) {
+      if (chunk.content) {
+        res.write(`data: ${JSON.stringify({ content: chunk.content.toString() })}\n\n`);
+      }
+    }
+
+    res.write('data: [DONE]\n\n');
+    res.end();
+  } catch (error) {
+    console.error('AI聊天错误:', error);
+    res.write(`data: ${JSON.stringify({ error: 'AI回复失败，请稍后重试' })}\n\n`);
     res.write('data: [DONE]\n\n');
     res.end();
   }
