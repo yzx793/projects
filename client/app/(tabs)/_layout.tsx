@@ -141,6 +141,19 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="math-practice"
+        options={{
+          title: '数学',
+          tabBarIcon: ({ color, focused }) => (
+            <FontAwesome6
+              name={focused ? 'calculator' : 'calculator'}
+              size={20}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: '我的',
