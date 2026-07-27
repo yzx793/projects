@@ -184,6 +184,12 @@ export default function TabLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="question-sync"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

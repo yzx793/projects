@@ -15,6 +15,7 @@ import vocabChatRouter from "./routes/vocabChat.js";
 import vocabRouter from "./routes/vocab.js";
 import poetryRouter from "./routes/poetry.js";
 import mathRouter from "./routes/math.js";
+import syncRouter from "./routes/sync.js";
 
 const app = express();
 const port = process.env.PORT || 9091;
@@ -44,6 +45,7 @@ app.use('/api/v1/vocab-chat', vocabChatRouter);
 app.use('/api/v1/vocab', vocabRouter);
 app.use('/api/v1/poetry', poetryRouter);
 app.use('/api/v1/math', mathRouter);
+app.use('/api/v1/sync', syncRouter);
 
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}/`);
