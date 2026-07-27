@@ -159,6 +159,18 @@ export default function TabLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="vocab-books"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="poetry-reading"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

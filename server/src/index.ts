@@ -12,6 +12,8 @@ import aiRouter from "./routes/ai.js";
 import practiceRouter from "./routes/practice.js";
 import questionsRouter from "./routes/questions.js";
 import vocabChatRouter from "./routes/vocabChat.js";
+import vocabRouter from "./routes/vocab.js";
+import poetryRouter from "./routes/poetry.js";
 
 const app = express();
 const port = process.env.PORT || 9091;
@@ -38,6 +40,8 @@ app.use('/api/v1/ai', aiRouter);
 app.use('/api/v1/practice', practiceRouter);
 app.use('/api/v1/questions', questionsRouter);
 app.use('/api/v1/vocab-chat', vocabChatRouter);
+app.use('/api/v1/vocab', vocabRouter);
+app.use('/api/v1/poetry', poetryRouter);
 
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}/`);
