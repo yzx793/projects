@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { questions, subjects, grades, stages } from '../data/questions.js';
+import { allQuestions, subjects, grades, stages } from '../data/questions.js';
 
 const router = Router();
 
@@ -36,7 +36,7 @@ router.get('/stages', (req, res) => {
 router.get('/', (req, res) => {
   const { subject, grade, stage, keyword, difficulty } = req.query;
   
-  let result = [...questions];
+  let result = [...allQuestions];
   
   // 按学科筛选
   if (subject && typeof subject === 'string') {
@@ -99,7 +99,7 @@ router.get('/', (req, res) => {
 // 获取题目详情
 router.get('/:id', (req, res) => {
   const id = parseInt(req.params.id);
-  const question = questions.find(q => q.id === id);
+  const question = allQuestions.find(q => q.id === id);
   
   if (!question) {
     return res.status(404).json({
@@ -118,7 +118,7 @@ router.get('/:id', (req, res) => {
 router.get('/subject/:subject/grade/:grade', (req, res) => {
   const { subject, grade } = req.params;
   
-  const result = questions.filter(q => 
+  const result = allQuestions.filter(q => 
     q.subject === subject && q.grade === grade
   );
   
@@ -138,7 +138,7 @@ router.get('/random/:count', (req, res) => {
   const count = Math.min(parseInt(req.params.count) || 10, 50);
   const { subject, grade, stage } = req.query;
   
-  let pool = [...questions];
+  let pool = [...allQuestions];
   
   // 按条件筛选题库
   if (subject && typeof subject === 'string') {
