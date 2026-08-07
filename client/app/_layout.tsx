@@ -23,6 +23,7 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(teacher)" />
         <Stack.Screen name="course-detail" />
         <Stack.Screen name="question-detail" />
         <Stack.Screen name="camera" options={{ gestureEnabled: false, animation: 'fade' }} />

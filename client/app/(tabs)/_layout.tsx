@@ -16,8 +16,9 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
     '--color-border',
   ]) as string[];
 
-  // Filter out the camera tab from the regular tabs
-  const regularTabs = state.routes.filter((route: any) => route.name !== 'camera');
+  // Filter out hidden tabs (camera, ai-chat, vocab-books, poetry-reading, question-sync)
+  const hiddenTabs = ['camera', 'ai-chat', 'vocab-books', 'poetry-reading', 'question-sync'];
+  const regularTabs = state.routes.filter((route: any) => !hiddenTabs.includes(route.name));
   const cameraRoute = state.routes.find((route: any) => route.name === 'camera');
 
   return (

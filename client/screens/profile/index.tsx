@@ -7,10 +7,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
+  Switch,
 } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -59,11 +60,22 @@ interface Badge {
 }
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<LearningStats | null>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isTeacher, setIsTeacher] = useState(false);
+
+  const handleRoleSwitch = (value: boolean) => {
+    setIsTeacher(value);
+    if (value) {
+      router.replace('/(teacher)/vocab-books');
+    } else {
+      router.replace('/(tabs)');
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -161,6 +173,33 @@ export default function ProfileScreen() {
             <Text style={styles.expText}>
               {profile.exp}/{profile.nextLevelExp} EXP
             </Text>
+          </View>
+        </View>
+
+        {/* Role Switcher */}
+        <View style={styles.shadowDark}>
+          <View style={styles.shadowLight}>
+            <View style={styles.roleSwitcher}>
+              <View style={styles.roleInfo}>
+                <FontAwesome6 name="user-graduate" size={20} color="#6C63FF" />
+                <View style={styles.roleTextContainer}>
+                  <Text style={styles.roleTitle}>当前身份</Text>
+                  <Text style={styles.roleSubtitle}>
+                    {isTeacher ? '教师端' : '学生端'}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.switchContainer}>
+                <Text style={[styles.switchLabel, !isTeacher && styles.switchLabelActive]}>学生</Text>
+                <Switch
+                  value={isTeacher}
+                  onValueChange={handleRoleSwitch}
+                  trackColor={{ false: '#E8E8EB', true: '#6C63FF' }}
+                  thumbColor={isTeacher ? '#FFF' : '#FFF'}
+                />
+                <Text style={[styles.switchLabel, isTeacher && styles.switchLabelActive]}>教师</Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -554,5 +593,41 @@ const styles = StyleSheet.create({
     color: '#636E72',
     textAlign: 'center',
     marginTop: 2,
+  },
+  roleSwitcher: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+  },
+  roleInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  roleTextContainer: {
+    gap: 2,
+  },
+  roleTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3436',
+  },
+  roleSubtitle: {
+    fontSize: 12,
+    color: '#636E72',
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  switchLabel: {
+    fontSize: 13,
+    color: '#B2BEC3',
+    fontWeight: '600',
+  },
+  switchLabelActive: {
+    color: '#6C63FF',
   },
 });

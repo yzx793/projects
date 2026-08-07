@@ -52,6 +52,11 @@ export default function AIChatScreen() {
   // TTS: Play AI response audio
   const playTTS = useCallback(async (text: string, messageId: string) => {
     try {
+      // Test if FileSystem is available
+      if (!(FileSystem as any).writeAsStringAsync) {
+        return;
+      }
+
       // Mark message as playing
       setMessages(prev => prev.map(m => 
         m.id === messageId ? { ...m, isPlaying: true } : m
@@ -68,32 +73,40 @@ export default function AIChatScreen() {
       const blob = await res.blob();
       const reader = new FileReader();
       reader.onloadend = async () => {
-        const base64 = (reader.result as string).split(',')[1];
-        const cacheDir = (FileSystem as any).cacheDirectory || '/tmp/';
-        const fileUri = `${cacheDir}tts_${Date.now()}.mp3`;
-        await (FileSystem as any).writeAsStringAsync(fileUri, base64, {
-          encoding: (FileSystem as any).EncodingType.Base64,
-        });
+        try {
+          const base64 = (reader.result as string).split(',')[1];
+          const cacheDir = (FileSystem as any).cacheDirectory || '/tmp/';
+          const fileUri = `${cacheDir}tts_${Date.now()}.mp3`;
+          await (FileSystem as any).writeAsStringAsync(fileUri, base64, {
+            encoding: (FileSystem as any).EncodingType.Base64,
+          });
 
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: fileUri },
-          { shouldPlay: true },
-          (status) => {
+          const { sound } = await Audio.Sound.createAsync(
+            { uri: fileUri },
+            { shouldPlay: true },
+            (status) => {
+              if (status.isLoaded && status.didJustFinish) {
+                setMessages(prev => prev.map(m => 
+                  m.id === messageId ? { ...m, isPlaying: false } : m
+                ));
+              }
+            }
+          );
+
+          sound.setOnPlaybackStatusUpdate((status) => {
             if (status.isLoaded && status.didJustFinish) {
               setMessages(prev => prev.map(m => 
                 m.id === messageId ? { ...m, isPlaying: false } : m
               ));
             }
-          }
-        );
-
-        sound.setOnPlaybackStatusUpdate((status) => {
-          if (status.isLoaded && status.didJustFinish) {
-            setMessages(prev => prev.map(m => 
-              m.id === messageId ? { ...m, isPlaying: false } : m
-            ));
-          }
-        });
+          });
+        } catch (e) {
+          // FileSystem not available, skip TTS
+          console.log('TTS skipped:', e);
+          setMessages(prev => prev.map(m => 
+            m.id === messageId ? { ...m, isPlaying: false } : m
+          ));
+        }
       };
       reader.readAsDataURL(blob);
     } catch (error) {
