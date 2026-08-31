@@ -1,8 +1,10 @@
 import { Tabs, useRouter } from 'expo-router';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useEffect } from 'react';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Descriptor } from '@react-navigation/routers';
+import { useAuth } from '@/context/AuthContext';
 
 function CustomTeacherTabBar({
   state,
@@ -14,12 +16,11 @@ function CustomTeacherTabBar({
   navigation: any;
 }) {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
 
   const titleMap: Record<string, string> = {
-    'vocab-books': '词书',
-    'poetry': '古诗词',
-    'question-sync': '题库',
+    'students': '学生',
+    'question-bank': '题库',
+    'profile': '我的',
   };
 
   return (
@@ -41,9 +42,9 @@ function CustomTeacherTabBar({
         };
 
         const iconMap: Record<string, string> = {
-          'vocab-books': 'book',
-          'poetry': 'scroll',
-          'question-sync': 'database',
+          'students': 'users',
+          'question-bank': 'database',
+          'profile': 'user',
         };
 
         const icon = iconMap[route.name] || 'circle';
@@ -71,34 +72,36 @@ function CustomTeacherTabBar({
           </TouchableOpacity>
         );
       })}
-      {/* Switch back to student mode */}
-      <TouchableOpacity
-        style={styles.switchBtn}
-        onPress={() => router.replace('/(tabs)')}
-      >
-        <FontAwesome6 name="user" size={20} color="#6C63FF" />
-      </TouchableOpacity>
     </View>
   );
 }
 
 export default function TeacherLayout() {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user?.role === 'student') {
+      router.replace('/(tabs)');
+    }
+  }, [user]);
+
   return (
     <Tabs
       tabBar={(props) => <CustomTeacherTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
       <Tabs.Screen
-        name="vocab-books"
-        options={{ title: '词书' }}
+        name="students"
+        options={{ title: '学生' }}
       />
       <Tabs.Screen
-        name="poetry"
-        options={{ title: '古诗词' }}
-      />
-      <Tabs.Screen
-        name="question-sync"
+        name="question-bank"
         options={{ title: '题库' }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{ title: '我的' }}
       />
     </Tabs>
   );
@@ -121,13 +124,5 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 11,
     fontWeight: '600',
-  },
-  switchBtn: {
-    width: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderLeftWidth: 1,
-    borderLeftColor: '#E8E8EB',
-    paddingLeft: 8,
   },
 });

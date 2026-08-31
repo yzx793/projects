@@ -1,5 +1,8 @@
 import express from "express";
 import cors from "cors";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 import userRouter from "./routes/user.js";
 import tasksRouter from "./routes/tasks.js";
@@ -47,6 +50,16 @@ app.use('/api/v1/poetry', poetryRouter);
 app.use('/api/v1/math', mathRouter);
 app.use('/api/v1/sync', syncRouter);
 
-app.listen(port, () => {
-  console.log(`Server listening at http://localhost:${port}/`);
+// Initialize SQLite database
+import { initDatabase } from './db/index.js';
+
+initDatabase().then(() => {
+  app.listen(port, () => {
+    console.log(`Server listening at http://localhost:${port}/`);
+  });
+}).catch((err) => {
+  console.error('❌ Database initialization failed:', err);
+  app.listen(port, () => {
+    console.log(`Server listening at http://localhost:${port}/ (without database)`);
+  });
 });

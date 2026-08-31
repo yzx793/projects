@@ -2,46 +2,11 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { LLMClient, Config, TTSClient, ASRClient } from 'coze-coding-dev-sdk';
 import multer from 'multer';
+import { queryAll, queryOne } from '../db/helpers.js';
+import { getDbType } from '../db/index.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
-
-// 单词库 - 按年级和难度分类
-const vocabularyBank = [
-  // 小学常用单词
-  { word: 'apple', meaning: '苹果', grade: 'elementary', difficulty: 'easy' },
-  { word: 'banana', meaning: '香蕉', grade: 'elementary', difficulty: 'easy' },
-  { word: 'cat', meaning: '猫', grade: 'elementary', difficulty: 'easy' },
-  { word: 'dog', meaning: '狗', grade: 'elementary', difficulty: 'easy' },
-  { word: 'elephant', meaning: '大象', grade: 'elementary', difficulty: 'easy' },
-  { word: 'friend', meaning: '朋友', grade: 'elementary', difficulty: 'easy' },
-  { word: 'happy', meaning: '快乐的', grade: 'elementary', difficulty: 'easy' },
-  { word: 'school', meaning: '学校', grade: 'elementary', difficulty: 'easy' },
-  { word: 'teacher', meaning: '老师', grade: 'elementary', difficulty: 'easy' },
-  { word: 'water', meaning: '水', grade: 'elementary', difficulty: 'easy' },
-  // 初中常用单词
-  { word: 'adventure', meaning: '冒险', grade: 'middle', difficulty: 'medium' },
-  { word: 'beautiful', meaning: '美丽的', grade: 'middle', difficulty: 'medium' },
-  { word: 'celebrate', meaning: '庆祝', grade: 'middle', difficulty: 'medium' },
-  { word: 'dangerous', meaning: '危险的', grade: 'middle', difficulty: 'medium' },
-  { word: 'environment', meaning: '环境', grade: 'middle', difficulty: 'medium' },
-  { word: 'important', meaning: '重要的', grade: 'middle', difficulty: 'medium' },
-  { word: 'knowledge', meaning: '知识', grade: 'middle', difficulty: 'medium' },
-  { word: 'mountain', meaning: '山', grade: 'middle', difficulty: 'medium' },
-  { word: 'practice', meaning: '练习', grade: 'middle', difficulty: 'medium' },
-  { word: 'wonderful', meaning: '精彩的', grade: 'middle', difficulty: 'medium' },
-  // 高中常用单词
-  { word: 'accomplish', meaning: '完成，实现', grade: 'high', difficulty: 'hard' },
-  { word: 'brilliant', meaning: '杰出的，灿烂的', grade: 'high', difficulty: 'hard' },
-  { word: 'comprehensive', meaning: '综合的，全面的', grade: 'high', difficulty: 'hard' },
-  { word: 'demonstrate', meaning: '证明，演示', grade: 'high', difficulty: 'hard' },
-  { word: 'enthusiasm', meaning: '热情，热忱', grade: 'high', difficulty: 'hard' },
-  { word: 'fundamental', meaning: '基本的，根本的', grade: 'high', difficulty: 'hard' },
-  { word: 'generate', meaning: '产生，生成', grade: 'high', difficulty: 'hard' },
-  { word: 'hypothesis', meaning: '假设，假说', grade: 'high', difficulty: 'hard' },
-  { word: 'innovative', meaning: '创新的', grade: 'high', difficulty: 'hard' },
-  { word: 'perspective', meaning: '观点，视角', grade: 'high', difficulty: 'hard' },
-];
 
 // 存储用户的学习记录（内存中，实际应该用数据库）
 const userLearningRecords: Map<string, {
@@ -56,26 +21,28 @@ const userLearningRecords: Map<string, {
  * 获取今日需要学习的5个单词
  * Query: grade?: 'elementary' | 'middle' | 'high'
  */
-router.get('/words', (req: Request, res: Response) => {
-  const { grade = 'middle' } = req.query;
-  
-  // 根据年级筛选单词
-  const filteredWords = vocabularyBank.filter(w => w.grade === grade);
-  
-  // 随机选择5个单词
-  const shuffled = [...filteredWords].sort(() => Math.random() - 0.5);
-  const selectedWords = shuffled.slice(0, 5);
-  
-  res.json({
-    code: 0,
-    data: {
-      words: selectedWords.map(w => ({
-        word: w.word,
-        meaning: w.meaning,
-        difficulty: w.difficulty,
-      })),
-    },
-  });
+router.get('/words', async (req: Request, res: Response) => {
+  try {
+    const { grade = 'middle' } = req.query;
+    
+    const words = await queryAll('SELECT * FROM vocabulary WHERE grade = ? ORDER BY RANDOM() LIMIT 5', [grade]);
+    
+    res.json({
+      code: 0,
+      data: {
+        words: words.map(w => ({
+          word: w.word,
+          meaning: w.meaning,
+          difficulty: w.difficulty,
+          phonetic: w.phonetic,
+          example: w.example,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error('Get vocab words error:', error);
+    res.status(500).json({ code: 500, message: '获取单词失败' });
+  }
 });
 
 /**
@@ -83,30 +50,36 @@ router.get('/words', (req: Request, res: Response) => {
  * 开始新的对话会话
  * Body: { words: string[] }
  */
-router.post('/start', (req: Request, res: Response) => {
-  const { words } = req.body;
-  
-  if (!Array.isArray(words) || words.length === 0) {
-    return res.status(400).json({ code: 400, message: '单词列表不能为空' });
-  }
-  
-  const sessionId = `session_${Date.now()}`;
-  
-  // 初始化学习记录
-  userLearningRecords.set(sessionId, {
-    words,
-    masteredWords: [],
-    wrongWords: [],
-    conversationHistory: [],
-  });
-  
-  // 生成系统提示词 - 按照用户提供的核心提示词模板
-  const wordList = words.map(w => {
-    const vocab = vocabularyBank.find(v => v.word.toLowerCase() === w.toLowerCase());
-    return vocab ? `${vocab.word} (${vocab.meaning})` : w;
-  }).join('、');
-  
-  const systemPrompt = `# Role
+router.post('/start', async (req: Request, res: Response) => {
+  try {
+    const { words } = req.body;
+    
+    if (!Array.isArray(words) || words.length === 0) {
+      return res.status(400).json({ code: 400, message: '单词列表不能为空' });
+    }
+    
+    const sessionId = `session_${Date.now()}`;
+    
+    userLearningRecords.set(sessionId, {
+      words,
+      masteredWords: [],
+      wrongWords: [],
+      conversationHistory: [],
+    });
+    
+    // Fetch vocabulary from database (works with both SQLite and PostgreSQL)
+    const vocabResults = await Promise.all(
+      words.map(async (w) => {
+        const vocab = await queryOne('SELECT * FROM vocabulary WHERE word = ?', [w]);
+        if (vocab) {
+          return `${vocab.word} (${vocab.meaning})`;
+        }
+        return w;
+      })
+    );
+    const wordList = vocabResults.join('、');
+    
+    const systemPrompt = `# Role
 你是一位幽默、有耐心的英语口语外教。你的任务是通过【情景对话】的方式，帮助学生快速记住并掌握今天给定的【目标单词】。
 
 # Task
@@ -131,17 +104,21 @@ ${wordList}
 - 当所有单词都被掌握后，在回复末尾加上【对话结束】
 
 # 开场白
-现在，请用一句友好的开场白开始对话，介绍今天需要学习的单词，并设定一个有趣的情景。例如："Hi there! Today we're going on a shopping adventure! 🛒 The words we need to master are: **apple**, **banana**, **orange**. Are you ready? Let's imagine we're at the supermarket..."`;
+现在，请用一句友好的开场白开始对话，介绍今天需要学习的单词，并设定一个有趣的情景。`;
 
-  const record = userLearningRecords.get(sessionId);
-  if (record) {
-    record.conversationHistory.push({ role: 'system', content: systemPrompt });
+    const record = userLearningRecords.get(sessionId);
+    if (record) {
+      record.conversationHistory.push({ role: 'system', content: systemPrompt });
+    }
+    
+    res.json({
+      code: 0,
+      data: { sessionId, systemPrompt },
+    });
+  } catch (error) {
+    console.error('Start vocab chat error:', error);
+    res.status(500).json({ code: 500, message: '开始对话失败' });
   }
-  
-  res.json({
-    code: 0,
-    data: { sessionId, systemPrompt },
-  });
 });
 
 /**
@@ -161,14 +138,12 @@ router.post('/message', async (req: Request, res: Response) => {
     return res.status(404).json({ code: 404, message: '会话不存在' });
   }
   
-  // 设置SSE响应头
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
   res.setHeader('Cache-Control', 'no-cache, no-store, no-transform, must-revalidate');
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
   
   try {
-    // 添加用户消息到历史
     record.conversationHistory.push({ role: 'user' as const, content: message });
     
     const config = new Config();
@@ -189,10 +164,8 @@ router.post('/message', async (req: Request, res: Response) => {
       }
     }
     
-    // 添加AI回复到历史
     record.conversationHistory.push({ role: 'assistant', content: fullResponse });
     
-    // 解析掌握和纠正的单词
     const masteredMatch = fullResponse.match(/【掌握:([^】]+)】/g);
     if (masteredMatch) {
       masteredMatch.forEach(match => {
@@ -216,10 +189,8 @@ router.post('/message', async (req: Request, res: Response) => {
       });
     }
     
-    // 检测对话是否结束
     const isConversationEnd = fullResponse.includes('【对话结束】');
     
-    // 发送掌握状态更新
     res.write(`data: ${JSON.stringify({ 
       type: 'status',
       masteredWords: record.masteredWords,
@@ -288,7 +259,6 @@ router.post('/asr', upload.single('audio'), async (req: Request, res: Response) 
     const config = new Config();
     const client = new ASRClient(config);
     
-    // 将音频转换为base64
     const audioBase64 = req.file.buffer.toString('base64');
     
     const result = await client.recognize({
@@ -315,41 +285,43 @@ router.post('/asr', upload.single('audio'), async (req: Request, res: Response) 
  * Body: { sessionId: string }
  */
 router.post('/settle', (req: Request, res: Response) => {
-  const { sessionId } = req.body;
-  
-  if (!sessionId) {
-    return res.status(400).json({ code: 400, message: '会话ID不能为空' });
+  try {
+    const { sessionId } = req.body;
+    
+    if (!sessionId) {
+      return res.status(400).json({ code: 400, message: '会话ID不能为空' });
+    }
+    
+    const record = userLearningRecords.get(sessionId);
+    if (!record) {
+      return res.status(404).json({ code: 404, message: '会话不存在' });
+    }
+    
+    const totalWords = record.words.length;
+    const masteredCount = record.masteredWords.length;
+    const wrongCount = record.wrongWords.length;
+    const masteryRate = totalWords > 0 ? Math.round((masteredCount / totalWords) * 100) : 0;
+    
+    const report = {
+      sessionId,
+      totalWords,
+      masteredWords: record.masteredWords,
+      wrongWords: record.wrongWords,
+      masteryRate,
+      conversationRounds: Math.floor(record.conversationHistory.filter(m => m.role === 'user').length),
+      timestamp: new Date().toISOString(),
+    };
+    
+    userLearningRecords.delete(sessionId);
+    
+    res.json({
+      code: 0,
+      data: report,
+    });
+  } catch (error) {
+    console.error('Settle vocab chat error:', error);
+    res.status(500).json({ code: 500, message: '结算失败' });
   }
-  
-  const record = userLearningRecords.get(sessionId);
-  if (!record) {
-    return res.status(404).json({ code: 404, message: '会话不存在' });
-  }
-  
-  // 计算学习结果
-  const totalWords = record.words.length;
-  const masteredCount = record.masteredWords.length;
-  const wrongCount = record.wrongWords.length;
-  const masteryRate = totalWords > 0 ? Math.round((masteredCount / totalWords) * 100) : 0;
-  
-  // 生成学习报告
-  const report = {
-    sessionId,
-    totalWords,
-    masteredWords: record.masteredWords,
-    wrongWords: record.wrongWords,
-    masteryRate,
-    conversationRounds: Math.floor(record.conversationHistory.filter(m => m.role === 'user').length),
-    timestamp: new Date().toISOString(),
-  };
-  
-  // 清理会话记录
-  userLearningRecords.delete(sessionId);
-  
-  res.json({
-    code: 0,
-    data: report,
-  });
 });
 
 export default router;

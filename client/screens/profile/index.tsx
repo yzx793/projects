@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Switch,
+  Alert,
 } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
@@ -15,6 +16,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAuth } from '@/context/AuthContext';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL || 'http://localhost:9091';
 const { width } = Dimensions.get('window');
@@ -62,11 +64,17 @@ interface Badge {
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { logout, user } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState<LearningStats | null>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [loading, setLoading] = useState(true);
   const [isTeacher, setIsTeacher] = useState(false);
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/login');
+  };
 
   const handleRoleSwitch = (value: boolean) => {
     setIsTeacher(value);
@@ -340,6 +348,12 @@ export default function ProfileScreen() {
             </View>
           ))}
         </View>
+
+        {/* Logout Button */}
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <FontAwesome6 name="right-from-bracket" size={18} color="#FF6B6B" />
+          <Text style={styles.logoutText}>退出登录</Text>
+        </TouchableOpacity>
       </ScrollView>
     </Screen>
   );
@@ -629,5 +643,24 @@ const styles = StyleSheet.create({
   },
   switchLabelActive: {
     color: '#6C63FF',
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginHorizontal: 24,
+    marginTop: 24,
+    marginBottom: 32,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#FF6B6B10',
+    borderWidth: 1,
+    borderColor: '#FF6B6B30',
+  },
+  logoutText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF6B6B',
   },
 });

@@ -1,29 +1,8 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
+import { queryAll, queryOne, run } from '../db/helpers.js';
 
 const router = Router();
-
-// In-memory favorites storage
-interface Favorite {
-  id: number;
-  questionId: number;
-  title: string;
-  subject: string;
-  subjectName: string;
-  type: string;
-  difficulty: number;
-  content: string;
-  answer: string;
-  analysis: string;
-  knowledgePoints: string[];
-  source: string;
-  createdAt: string;
-  favoritedAt: string;
-  note?: string;
-}
-
-const favorites: Favorite[] = [];
-let favoriteIdCounter = 1;
 
 /**
  * GET /api/v1/favorites
@@ -33,25 +12,28 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const { subject } = req.query;
     
-    let filteredFavorites = [...favorites];
-    
+    let query = 'SELECT * FROM favorites WHERE 1=1';
     if (subject && subject !== 'all') {
-      filteredFavorites = filteredFavorites.filter(f => f.subject === subject);
+      query += ` AND subject = '${subject}'`;
     }
-
-    // Group by subject for stats
+    query += ' ORDER BY favorited_at DESC';
+    
+    const favorites = await queryAll(query);
+    
+    favorites.forEach((fav: any) => {
+      fav.knowledge_points = fav.knowledge_points ? fav.knowledge_points.split(',') : [];
+    });
+    
     const subjectStats: Record<string, number> = {};
-    filteredFavorites.forEach(f => {
+    favorites.forEach((f: any) => {
       subjectStats[f.subject] = (subjectStats[f.subject] || 0) + 1;
     });
 
     res.json({
       code: 0,
       data: {
-        favorites: filteredFavorites.sort((a, b) => 
-          new Date(b.favoritedAt).getTime() - new Date(a.favoritedAt).getTime()
-        ),
-        total: filteredFavorites.length,
+        favorites,
+        total: favorites.length,
         subjectStats,
       },
     });
@@ -64,15 +46,15 @@ router.get('/', async (req: Request, res: Response) => {
 /**
  * POST /api/v1/favorites
  * Add a question to favorites
- * Body: { questionId, title, subject, subjectName, type, difficulty, content, answer, analysis, knowledgePoints, source, note? }
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
     const { questionId, title, subject, subjectName, type, difficulty, content, answer, analysis, knowledgePoints, source, note } = req.body;
 
-    // Check if already favorited
-    const existing = favorites.find(f => f.questionId === questionId);
+    const existing = await queryOne(`SELECT * FROM favorites WHERE question_id = ${questionId}`);
     if (existing) {
+      existing.knowledge_points = existing.knowledge_points ? existing.knowledge_points.split(',') : [];
+      
       return res.json({
         code: 0,
         message: 'Already in favorites',
@@ -80,25 +62,14 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
-    const newFavorite: Favorite = {
-      id: favoriteIdCounter++,
-      questionId,
-      title,
-      subject,
-      subjectName,
-      type,
-      difficulty,
-      content,
-      answer,
-      analysis,
-      knowledgePoints,
-      source,
-      createdAt: new Date().toISOString(),
-      favoritedAt: new Date().toISOString(),
-      note,
-    };
+    const kpStr = Array.isArray(knowledgePoints) ? knowledgePoints.join(',') : knowledgePoints || '';
+    
+    await run(
+      `INSERT INTO favorites (question_id, title, subject, subject_name, type, difficulty, content, answer, analysis, knowledge_points, source, note) VALUES (${questionId}, '${title}', '${subject}', '${subjectName}', '${type}', ${difficulty}, '${content}', '${answer}', '${analysis}', '${kpStr}', '${source}', '${note}')`
+    );
 
-    favorites.push(newFavorite);
+    const newFavorite = await queryOne('SELECT * FROM favorites ORDER BY id DESC LIMIT 1');
+    newFavorite.knowledge_points = newFavorite.knowledge_points ? newFavorite.knowledge_points.split(',') : [];
 
     res.json({
       code: 0,
@@ -118,13 +89,13 @@ router.post('/', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const id = parseInt(String(req.params.id));
-    const index = favorites.findIndex(f => f.id === id);
-
-    if (index === -1) {
+    
+    const existing = await queryOne(`SELECT * FROM favorites WHERE id = ${id}`);
+    if (!existing) {
       return res.status(404).json({ code: 404, message: 'Favorite not found' });
     }
 
-    favorites.splice(index, 1);
+    await run(`DELETE FROM favorites WHERE id = ${id}`);
 
     res.json({
       code: 0,
@@ -143,13 +114,20 @@ router.delete('/:id', async (req: Request, res: Response) => {
 router.get('/check/:questionId', async (req: Request, res: Response) => {
   try {
     const questionId = parseInt(String(req.params.questionId));
-    const favorite = favorites.find(f => f.questionId === questionId);
+    
+    const existing = await queryOne(`SELECT * FROM favorites WHERE question_id = ${questionId}`);
+    const isFavorited = !!existing;
+    
+    let favoriteId = null;
+    if (isFavorited) {
+      favoriteId = existing.id;
+    }
 
     res.json({
       code: 0,
       data: {
-        isFavorited: !!favorite,
-        favoriteId: favorite?.id,
+        isFavorited,
+        favoriteId,
       },
     });
   } catch (error) {

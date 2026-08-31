@@ -1,10 +1,12 @@
-import { Tabs } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Tabs, useRouter } from 'expo-router';
 import { Platform, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useCSSVariable } from 'uniwind';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAuth } from '@/context/AuthContext';
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
@@ -16,8 +18,8 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
     '--color-border',
   ]) as string[];
 
-  // Filter out hidden tabs (camera, ai-chat, vocab-books, poetry-reading, question-sync)
-  const hiddenTabs = ['camera', 'ai-chat', 'vocab-books', 'poetry-reading', 'question-sync'];
+  // Filter out hidden tabs (camera, ai-chat, vocab-books, poetry-reading, question-sync, questions, math-practice)
+  const hiddenTabs = ['camera', 'ai-chat', 'vocab-books', 'poetry-reading', 'question-sync', 'questions', 'math-practice'];
   const regularTabs = state.routes.filter((route: any) => !hiddenTabs.includes(route.name));
   const cameraRoute = state.routes.find((route: any) => route.name === 'camera');
 
@@ -30,14 +32,11 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
           const label = options.title || route.name;
           const color = isFocused ? '#6C63FF' : '#B2BEC3';
 
-          // Find the actual index in the state
-          const actualIndex = state.routes.findIndex((r: any) => r.key === route.key);
-          
           // Insert camera button after the 2nd tab (courses)
           const insertCameraAfter = index === 1;
 
           return (
-            <View key={route.key} style={styles.tabWrapper}>
+            <React.Fragment key={route.key}>
               <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityState={isFocused ? { selected: true } : {}}
@@ -65,7 +64,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
                   <Text style={styles.cameraLabel}>搜题</Text>
                 </TouchableOpacity>
               )}
-            </View>
+            </React.Fragment>
           );
         })}
       </View>
@@ -74,6 +73,15 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
 }
 
 export default function TabLayout() {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user?.role === 'teacher') {
+      router.replace('/(teacher)');
+    }
+  }, [user]);
+
   return (
     <Tabs
       screenOptions={{
@@ -212,10 +220,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     paddingHorizontal: 8,
     paddingTop: 8,
-  },
-  tabWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   tabButton: {
     alignItems: 'center',
