@@ -7,6 +7,7 @@ export interface User {
   id: number;
   username: string;
   role: 'student' | 'teacher';
+  grade?: string;
   avatar: string;
   level: number;
   exp: number;
@@ -16,7 +17,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
-  register: (username: string, password: string, role: 'student' | 'teacher') => Promise<{ success: boolean; message?: string }>;
+  register: (username: string, password: string, role: 'student' | 'teacher', grade?: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
 }
 
@@ -63,12 +64,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const register = useCallback(async (username: string, password: string, role: 'student' | 'teacher') => {
+  const register = useCallback(async (username: string, password: string, role: 'student' | 'teacher', grade?: string) => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/user/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, role }),
+        body: JSON.stringify({ username, password, role, grade }),
       });
       const json = await res.json();
       if (json.code === 0) {

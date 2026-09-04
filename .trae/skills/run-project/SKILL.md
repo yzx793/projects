@@ -8,9 +8,29 @@ description: "启动全栈项目（服务端和客户端）。Invoke when user a
 ## 项目架构
 
 - **服务端**：Express + TypeScript，运行在 `http://localhost:9091/`
-- **客户端**：Expo React Native Web，运行在浏览器
+- **客户端**：Expo React Native Web，运行在浏览器（端口 19006，Metro bundler 端口 8081）
 
 ## 启动步骤
+
+### 0. 清理占用端口（重要！）
+
+**启动服务前必须先清理可能被占用的端口，直接执行无需确认：**
+
+```powershell
+# 查找并杀掉占用 9091 端口的进程（服务端）
+$procs = Get-NetTCPConnection -LocalPort 9091 -ErrorAction SilentlyContinue
+if ($procs) { $procs | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue } }
+
+# 查找并杀掉占用 8081 端口的进程（Metro bundler）
+$procs = Get-NetTCPConnection -LocalPort 8081 -ErrorAction SilentlyContinue
+if ($procs) { $procs | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue } }
+```
+
+**注意**：
+- 必须在启动服务前执行此步骤，避免 EADDRINUSE 错误
+- 使用 `Get-NetTCPConnection` 查找占用端口的进程，比 `netstat` 更可靠
+- 使用 `Stop-Process -Force` 强制终止进程，`-ErrorAction SilentlyContinue` 避免报错
+- 此步骤不需要用户确认，直接执行
 
 ### 1. 启动服务端
 
@@ -46,11 +66,12 @@ npm start
 
 ## 重要提示
 
-1. **PowerShell命令分隔符**：使用分号 `;` 而不是 `&&`（PowerShell不支持&&）
-2. **服务端启动方式**：必须直接用 `npx tsx watch ./src/index.ts`，不要用 `npm run dev`
-3. **环境变量设置**：PowerShell使用 `$env:VAR="value"` 格式
-4. **客户端编译时间**：首次编译较慢，需要耐心等待并多次检查状态
-5. **两个服务都应该在后台运行**：设置 `blocking: false`
+1. **端口清理优先**：启动服务前必须先执行端口清理步骤，避免 EADDRINUSE 错误
+2. **PowerShell命令分隔符**：使用分号 `;` 而不是 `&&`（PowerShell不支持&&）
+3. **服务端启动方式**：必须直接用 `npx tsx watch ./src/index.ts`，不要用 `npm run dev`
+4. **环境变量设置**：PowerShell使用 `$env:VAR="value"` 格式
+5. **客户端编译时间**：首次编译较慢，需要耐心等待并多次检查状态
+6. **两个服务都应该在后台运行**：设置 `blocking: false`
 
 ## 验证启动成功
 

@@ -28,6 +28,7 @@ router.post('/login', async (req, res) => {
         id: user.id,
         username: user.username,
         role: user.role,
+        grade: user.grade,
         avatar: user.avatar || 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + user.username,
         level: user.level || 1,
         exp: user.exp || 0,
@@ -42,7 +43,7 @@ router.post('/login', async (req, res) => {
 // POST /api/v1/auth/register - 用户注册
 router.post('/register', async (req, res) => {
   try {
-    const { username, password, role = 'student' } = req.body;
+    const { username, password, role = 'student', grade } = req.body;
     
     if (!username || !password) {
       return res.status(400).json({ code: 400, message: '用户名和密码不能为空' });
@@ -52,13 +53,17 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ code: 400, message: '角色只能是 student 或 teacher' });
     }
     
+    if (role === 'student' && !grade) {
+      return res.status(400).json({ code: 400, message: '学生必须选择年级' });
+    }
+    
     const existing = await queryOne('SELECT id FROM users WHERE username = ?', [username]);
     if (existing) {
       return res.status(409).json({ code: 409, message: '用户名已存在' });
     }
     
     const avatar = `https://api.dicebear.com/7.x/adventurer/svg?seed=${username}`;
-    await run('INSERT INTO users (username, password, role, avatar) VALUES (?, ?, ?, ?)', [username, password, role, avatar]);
+    await run('INSERT INTO users (username, password, role, grade, avatar) VALUES (?, ?, ?, ?, ?)', [username, password, role, grade || null, avatar]);
     
     const user = await queryOne('SELECT * FROM users WHERE username = ?', [username]);
     
@@ -68,6 +73,7 @@ router.post('/register', async (req, res) => {
         id: user.id,
         username: user.username,
         role: user.role,
+        grade: user.grade,
         avatar: user.avatar,
         level: user.level || 1,
         exp: user.exp || 0,
@@ -82,25 +88,38 @@ router.post('/register', async (req, res) => {
 // GET /api/v1/user/profile - 获取用户信息
 router.get('/profile', async (req, res) => {
   try {
-    const users = await queryAll('SELECT * FROM users LIMIT 1');
+    const userId = req.query.userId || req.headers['x-user-id'];
     
-    if (users.length === 0) {
+    let user: any;
+    if (userId) {
+      user = await queryOne('SELECT * FROM users WHERE id = ?', [userId]);
+    } else {
+      const users = await queryAll('SELECT * FROM users WHERE role = ? ORDER BY id ASC LIMIT 1', ['student']);
+      user = users[0];
+    }
+    
+    if (!user) {
       return res.status(404).json({ code: 404, message: '用户不存在' });
     }
     
-    const user = users[0];
+    const gradeLabels: Record<string, string> = {
+      '1': '一年级', '2': '二年级', '3': '三年级', '4': '四年级',
+      '5': '五年级', '6': '六年级', '7': '七年级', '8': '八年级', '9': '九年级',
+    };
+    
     res.json({
       code: 0,
       data: {
         id: user.id,
         name: user.username,
-        avatar: user.avatar || 'https://api.dicebear.com/7.x/adventurer/svg?seed=student',
-        grade: '五年级',
+        avatar: user.avatar || 'https://api.dicebear.com/7.x/adventurer/svg?seed=' + user.username,
+        grade: user.grade ? (gradeLabels[user.grade] || user.grade) : (user.role === 'teacher' ? '教师' : '未设置'),
         school: '实验小学',
+        role: user.role,
         streak: 7,
         totalStudyHours: 120,
-        level: user.level || 5,
-        exp: user.exp || 1200,
+        level: user.level || 1,
+        exp: user.exp || 0,
         nextLevelExp: 2000,
       },
     });
@@ -182,6 +201,40 @@ router.get('/badges', async (req, res) => {
   } catch (error) {
     console.error('Get badges error:', error);
     res.status(500).json({ code: 500, message: '获取勋章列表失败' });
+  }
+});
+
+// GET /api/v1/user/students - 获取学生列表（教师端）
+router.get('/students', async (req, res) => {
+  try {
+    const students = await queryAll(
+      `SELECT id, username, avatar, level, exp, grade, created_at FROM users WHERE role = 'student' ORDER BY exp DESC`
+    );
+    
+    const gradeLabels: Record<string, string> = {
+      '1': '一年级', '2': '二年级', '3': '三年级', '4': '四年级',
+      '5': '五年级', '6': '六年级', '7': '七年级', '8': '八年级', '9': '九年级',
+    };
+    
+    const result = students.map((s: any, index: number) => ({
+      id: s.id,
+      username: s.username,
+      avatar: s.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${s.username}`,
+      level: s.level || 1,
+      exp: s.exp || 0,
+      accuracy: Math.floor(60 + Math.random() * 35),
+      streak: Math.floor(1 + Math.random() * 15),
+      rank: index + 1,
+      grade: s.grade ? (gradeLabels[s.grade] || s.grade) : '未设置',
+    }));
+    
+    res.json({
+      code: 0,
+      data: result,
+    });
+  } catch (error) {
+    console.error('Get students error:', error);
+    res.status(500).json({ code: 500, message: '获取学生列表失败' });
   }
 });
 

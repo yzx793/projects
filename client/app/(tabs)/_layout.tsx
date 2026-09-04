@@ -18,15 +18,15 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
     '--color-border',
   ]) as string[];
 
-  // Filter out hidden tabs (camera, ai-chat, vocab-books, poetry-reading, question-sync, questions, math-practice)
+  // Filter out hidden tabs on both mobile and web
   const hiddenTabs = ['camera', 'ai-chat', 'vocab-books', 'poetry-reading', 'question-sync', 'questions', 'math-practice'];
-  const regularTabs = state.routes.filter((route: any) => !hiddenTabs.includes(route.name));
+  const visibleTabs = state.routes.filter((route: any) => !hiddenTabs.includes(route.name));
   const cameraRoute = state.routes.find((route: any) => route.name === 'camera');
 
   return (
     <View style={[styles.tabBarContainer, { paddingBottom: insets.bottom }]}>
       <View style={styles.tabBar}>
-        {regularTabs.map((route: any, index: number) => {
+        {visibleTabs.map((route: any, index: number) => {
           const { options } = descriptors[route.key];
           const isFocused = state.index === state.routes.findIndex((r: any) => r.key === route.key);
           const label = options.title || route.name;

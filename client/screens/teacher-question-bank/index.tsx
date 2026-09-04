@@ -1,58 +1,104 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
+const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+
+interface CategoryStat {
+  icon: string;
+  iconColor: string;
+  iconBg: string;
+  title: string;
+  desc: string;
+  count: number;
+  route: string;
+  subject?: string;
+  stage?: string;
+}
+
 export default function QuestionBankScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ total: 0, bySubject: [] as any[], byStage: [] as any[] });
 
-  const categories = [
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/questions`);
+        const json = await res.json();
+        if (json.code === 0) {
+          setStats(json.data.stats);
+        }
+      } catch (e) {
+        console.error('Failed to fetch question stats:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
+  const categories: CategoryStat[] = [
     {
-      icon: 'book' as const,
+      icon: 'book',
       iconColor: '#0984E3',
       iconBg: '#0984E315',
       title: '词书（英语）',
       desc: '管理单词词库和难度分级',
-      count: 1200,
+      count: stats.bySubject?.find((s: any) => s.subject === 'english')?.count || 0,
       route: '/(teacher)/vocab-books',
     },
     {
-      icon: 'scroll' as const,
+      icon: 'scroll',
       iconColor: '#E17055',
       iconBg: '#E1705515',
       title: '古诗词（语文）',
       desc: '管理古诗词内容和赏析',
-      count: 350,
+      count: stats.bySubject?.find((s: any) => s.subject === 'chinese')?.count || 0,
       route: '/(teacher)/poetry',
     },
     {
-      icon: 'calculator' as const,
+      icon: 'calculator',
       iconColor: '#00B894',
       iconBg: '#00B89415',
       title: '数学题',
       desc: '数学各类题型',
-      count: 800,
+      count: stats.bySubject?.find((s: any) => s.subject === 'math')?.count || 0,
       route: '/(teacher)/math-questions',
     },
     {
-      icon: 'flask' as const,
+      icon: 'flask',
       iconColor: '#6C5CE7',
       iconBg: '#6C5CE715',
       title: '物理/化学',
       desc: '理化生各类题目',
-      count: 600,
+      count: (stats.bySubject?.find((s: any) => s.subject === 'physics')?.count || 0) +
+            (stats.bySubject?.find((s: any) => s.subject === 'chemistry')?.count || 0) +
+            (stats.bySubject?.find((s: any) => s.subject === 'biology')?.count || 0),
       route: '/(teacher)/science-questions',
     },
   ];
+
+  if (loading) {
+    return (
+      <Screen safeAreaEdges={['left', 'right', 'bottom']} backgroundColor="#F0F0F3">
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#6C63FF" />
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen safeAreaEdges={['left', 'right', 'bottom']} backgroundColor="#F0F0F3">
@@ -64,18 +110,18 @@ export default function QuestionBankScreen() {
         {/* Stats Summary */}
         <View style={styles.statsCard}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>2950</Text>
+            <Text style={styles.statValue}>{stats.total}</Text>
             <Text style={styles.statLabel}>题目总数</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>4</Text>
-            <Text style={styles.statLabel}>分类</Text>
+            <Text style={styles.statValue}>{categories.filter(c => c.count > 0).length}</Text>
+            <Text style={styles.statLabel}>活跃分类</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>12</Text>
-            <Text style={styles.statLabel}>今日新增</Text>
+            <Text style={styles.statValue}>{stats.byStage?.length || 0}</Text>
+            <Text style={styles.statLabel}>学段</Text>
           </View>
         </View>
 
@@ -89,7 +135,7 @@ export default function QuestionBankScreen() {
               onPress={() => router.push(item.route as any)}
             >
               <View style={[styles.categoryIcon, { backgroundColor: item.iconBg }]}>
-                <FontAwesome6 name={item.icon} size={20} color={item.iconColor} />
+                <FontAwesome6 name={item.icon as any} size={20} color={item.iconColor} />
               </View>
               <View style={styles.categoryInfo}>
                 <Text style={styles.categoryTitle}>{item.title}</Text>
@@ -133,6 +179,11 @@ export default function QuestionBankScreen() {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   statsCard: {
     marginHorizontal: 16,
     marginBottom: 16,

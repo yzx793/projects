@@ -1,5 +1,5 @@
 import { Tabs, useRouter } from 'expo-router';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Platform, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useEffect } from 'react';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,6 +17,10 @@ function CustomTeacherTabBar({
 }) {
   const insets = useSafeAreaInsets();
 
+  // Hide extra routes from tab bar
+  const hiddenRoutes = ['poetry', 'vocab-books', 'question-sync'];
+  const visibleRoutes = state.routes.filter((route: any) => !hiddenRoutes.includes(route.name));
+
   const titleMap: Record<string, string> = {
     'students': '学生',
     'question-bank': '题库',
@@ -25,10 +29,10 @@ function CustomTeacherTabBar({
 
   return (
     <View style={[styles.tabBar, { paddingBottom: insets.bottom + 8 }]}>
-      {state.routes.map((route: any, index: number) => {
+      {visibleRoutes.map((route: any, index: number) => {
         const { options } = descriptors[route.key];
         const label = titleMap[route.name] ?? options.title ?? route.name;
-        const isFocused = state.index === index;
+        const isFocused = state.index === state.routes.findIndex((r: any) => r.key === route.key);
 
         const onPress = () => {
           const event = navigation.emit({
@@ -89,7 +93,10 @@ export default function TeacherLayout() {
   return (
     <Tabs
       tabBar={(props) => <CustomTeacherTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
+      screenOptions={{
+        headerShown: false,
+        tabBarStyle: Platform.OS === 'web' ? { display: 'none' } : undefined,
+      }}
     >
       <Tabs.Screen
         name="students"

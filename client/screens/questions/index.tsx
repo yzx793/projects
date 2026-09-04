@@ -4,6 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useSafeRouter } from '@/hooks/useSafeRouter';
+import { useAuth } from '@/context/AuthContext';
 
 const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
 
@@ -74,6 +75,7 @@ type ViewMode = 'stage' | 'grade' | 'subject' | 'type' | 'list';
 
 export default function QuestionsScreen() {
   const router = useSafeRouter();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('stage');
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
@@ -83,11 +85,16 @@ export default function QuestionsScreen() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [stats, setStats] = useState<{ total: number; bySubject: any[]; byStage: any[] }>({ total: 0, bySubject: [], byStage: [] });
 
+  // 学生端自动按年级过滤
+  const studentGradeId = user?.role === 'student' && user?.grade ? `grade${user.grade}` : null;
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (selectedGrade) params.append('grade', selectedGrade);
+      // 学生端自动使用自己的年级过滤
+      const effectiveGrade = studentGradeId || selectedGrade;
+      if (effectiveGrade) params.append('grade', effectiveGrade);
       if (selectedSubject) params.append('subject', selectedSubject);
       if (selectedType) params.append('type', selectedType);
       
@@ -104,7 +111,7 @@ export default function QuestionsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [selectedGrade, selectedSubject, selectedType]);
+  }, [selectedGrade, selectedSubject, selectedType, studentGradeId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -157,19 +164,25 @@ export default function QuestionsScreen() {
     return questions.filter(q => q.type === typeId).length;
   };
 
+  // 学生端直接进入年级选择，跳过学段选择
+  const initialViewMode = studentGradeId ? 'subject' : viewMode;
+
   const renderHeader = () => (
     <View className="flex-row items-center mb-4">
-      {viewMode !== 'stage' && (
+      {viewMode !== 'stage' && !studentGradeId && (
         <TouchableOpacity onPress={handleBack} className="mr-3 p-2">
           <FontAwesome6 name="arrow-left" size={20} color="#2D3436" />
         </TouchableOpacity>
       )}
       <Text className="text-2xl font-bold text-gray-900 dark:text-white flex-1">
-        {viewMode === 'stage' && '选择学段'}
-        {viewMode === 'grade' && `${STAGES.find(s => s.id === selectedStage)?.name} - 选择年级`}
-        {viewMode === 'subject' && `${GRADES[selectedStage || '']?.find(g => g.id === selectedGrade)?.name} - 选择科目`}
-        {viewMode === 'type' && `${SUBJECTS.find(s => s.id === selectedSubject)?.name} - 选择题型`}
-        {viewMode === 'list' && `${SUBJECTS.find(s => s.id === selectedSubject)?.name} - ${QUESTION_TYPES.find(t => t.id === selectedType)?.name || '全部题型'}`}
+        {studentGradeId && viewMode === 'subject' && '选择科目'}
+        {studentGradeId && viewMode === 'type' && `${SUBJECTS.find(s => s.id === selectedSubject)?.name} - 选择题型`}
+        {studentGradeId && viewMode === 'list' && `${SUBJECTS.find(s => s.id === selectedSubject)?.name} - ${QUESTION_TYPES.find(t => t.id === selectedType)?.name || '全部题型'}`}
+        {!studentGradeId && viewMode === 'stage' && '选择学段'}
+        {!studentGradeId && viewMode === 'grade' && `${STAGES.find(s => s.id === selectedStage)?.name} - 选择年级`}
+        {!studentGradeId && viewMode === 'subject' && `${GRADES[selectedStage || '']?.find(g => g.id === selectedGrade)?.name} - 选择科目`}
+        {!studentGradeId && viewMode === 'type' && `${SUBJECTS.find(s => s.id === selectedSubject)?.name} - 选择题型`}
+        {!studentGradeId && viewMode === 'list' && `${SUBJECTS.find(s => s.id === selectedSubject)?.name} - ${QUESTION_TYPES.find(t => t.id === selectedType)?.name || '全部题型'}`}
       </Text>
       <View className="bg-indigo-100 dark:bg-indigo-900/30 px-3 py-1 rounded-full">
         <Text className="text-indigo-600 dark:text-indigo-400 text-sm font-medium">
@@ -367,9 +380,9 @@ export default function QuestionsScreen() {
           </View>
         ) : (
           <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-            {viewMode === 'stage' && renderStageSelection()}
-            {viewMode === 'grade' && renderGradeSelection()}
-            {viewMode === 'subject' && renderSubjectSelection()}
+            {!studentGradeId && viewMode === 'stage' && renderStageSelection()}
+            {!studentGradeId && viewMode === 'grade' && renderGradeSelection()}
+            {(studentGradeId || viewMode === 'subject') && renderSubjectSelection()}
             {viewMode === 'type' && renderTypeSelection()}
             {viewMode === 'list' && renderQuestionList()}
           </ScrollView>

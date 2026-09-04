@@ -89,27 +89,16 @@ export default function ProfileScreen() {
     useCallback(() => {
       const fetchAll = async () => {
         try {
-          /**
-           * 服务端文件：server/src/routes/user.ts
-           * 接口：GET /api/v1/user/profile
-           */
-          const profileRes = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/user/profile`);
+          const userIdParam = user ? `?userId=${user.id}` : '';
+          const profileRes = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/user/profile${userIdParam}`);
           const profileJson = await profileRes.json();
           if (profileJson.code === 0) setProfile(profileJson.data);
 
-          /**
-           * 服务端文件：server/src/routes/user.ts
-           * 接口：GET /api/v1/user/stats
-           */
-          const statsRes = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/user/stats`);
+          const statsRes = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/user/stats${userIdParam}`);
           const statsJson = await statsRes.json();
           if (statsJson.code === 0) setStats(statsJson.data);
 
-          /**
-           * 服务端文件：server/src/routes/user.ts
-           * 接口：GET /api/v1/user/badges
-           */
-          const badgesRes = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/user/badges`);
+          const badgesRes = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/user/badges${userIdParam}`);
           const badgesJson = await badgesRes.json();
           if (badgesJson.code === 0) setBadges(badgesJson.data);
         } catch (e) {
@@ -119,7 +108,7 @@ export default function ProfileScreen() {
         }
       };
       fetchAll();
-    }, [])
+    }, [user])
   );
 
   if (loading) {

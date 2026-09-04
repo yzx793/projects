@@ -81,6 +81,7 @@ function createSQLiteTables() {
       username TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'student',
+      grade TEXT,
       avatar TEXT,
       level INTEGER DEFAULT 1,
       exp INTEGER DEFAULT 0,
@@ -226,6 +227,20 @@ function createSQLiteTables() {
   } catch (e) {
     // Column already exists, ignore
   }
+
+  // Migration: add grade column to users if it doesn't exist
+  try {
+    sqliteDb.run(`ALTER TABLE users ADD COLUMN grade TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
+
+  // Migration: set default grade for existing students who have NULL grade (SQLite)
+  try {
+    sqliteDb.run(`UPDATE users SET grade = '5' WHERE role = 'student' AND grade IS NULL`);
+  } catch (e) {
+    // Ignore
+  }
   
   console.log('✅ SQLite tables created');
 }
@@ -245,6 +260,7 @@ async function createPostgresTables() {
       username TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'student',
+      grade TEXT,
       avatar TEXT,
       level INTEGER DEFAULT 1,
       exp INTEGER DEFAULT 0,
@@ -384,6 +400,22 @@ async function createPostgresTables() {
     await pgPool.query(sql);
   }
   
+  // Migration: add grade column to users if it doesn't exist (PostgreSQL)
+  try {
+    await pgPool.query(`ALTER TABLE users ADD COLUMN grade TEXT`);
+  } catch (e: any) {
+    if (!e.message.includes('already exists') && !e.message.includes('duplicate column')) {
+      console.warn('⚠️  PostgreSQL grade column migration warning:', e.message);
+    }
+  }
+
+  // Migration: set default grade for existing students who have NULL grade
+  try {
+    await pgPool.query(`UPDATE users SET grade = '5' WHERE role = 'student' AND grade IS NULL`);
+  } catch (e: any) {
+    console.warn('⚠️  PostgreSQL grade default migration warning:', e.message);
+  }
+  
   console.log('✅ PostgreSQL tables created');
 }
 
@@ -397,10 +429,10 @@ function seedInitialData() {
   console.log('🌱 Seeding SQLite initial data...');
   
   seedSubjects(sqliteDb);
-  sqliteDb.run(`INSERT INTO users (username, password, role, avatar, level, exp) VALUES (?, ?, ?, ?, ?, ?)`,
-    ['student', '123456', 'student', 'https://api.dicebear.com/7.x/adventurer/svg?seed=student', 5, 1200]);
-  sqliteDb.run(`INSERT INTO users (username, password, role, avatar, level, exp) VALUES (?, ?, ?, ?, ?, ?)`,
-    ['teacher', '123456', 'teacher', 'https://api.dicebear.com/7.x/adventurer/svg?seed=teacher', 10, 3000]);
+  sqliteDb.run(`INSERT INTO users (username, password, role, grade, avatar, level, exp) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ['student', '123456', 'student', '5', 'https://api.dicebear.com/7.x/adventurer/svg?seed=student', 5, 1200]);
+  sqliteDb.run(`INSERT INTO users (username, password, role, grade, avatar, level, exp) VALUES (?, ?, ?, ?, ?, ?)`,
+    ['teacher', '123456', 'teacher', null, 'https://api.dicebear.com/7.x/adventurer/svg?seed=teacher', 10, 3000]);
   
   seedVocabulary(sqliteDb);
   seedPoems(sqliteDb);
@@ -422,12 +454,12 @@ async function seedPostgresData() {
   console.log('🌱 Seeding PostgreSQL initial data...');
   
   await pgPool.query(
-    `INSERT INTO users (username, password, role, avatar, level, exp) VALUES ($1, $2, $3, $4, $5, $6)`,
-    ['student', '123456', 'student', 'https://api.dicebear.com/7.x/adventurer/svg?seed=student', 5, 1200]
+    `INSERT INTO users (username, password, role, grade, avatar, level, exp) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    ['student', '123456', 'student', '5', 'https://api.dicebear.com/7.x/adventurer/svg?seed=student', 5, 1200]
   );
   await pgPool.query(
-    `INSERT INTO users (username, password, role, avatar, level, exp) VALUES ($1, $2, $3, $4, $5, $6)`,
-    ['teacher', '123456', 'teacher', 'https://api.dicebear.com/7.x/adventurer/svg?seed=teacher', 10, 3000]
+    `INSERT INTO users (username, password, role, grade, avatar, level, exp) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    ['teacher', '123456', 'teacher', null, 'https://api.dicebear.com/7.x/adventurer/svg?seed=teacher', 10, 3000]
   );
   
   await seedSubjectsPg();

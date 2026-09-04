@@ -14,11 +14,24 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import Toast from 'react-native-toast-message';
 
+const GRADES = [
+  { label: '一年级', value: '1' },
+  { label: '二年级', value: '2' },
+  { label: '三年级', value: '3' },
+  { label: '四年级', value: '4' },
+  { label: '五年级', value: '5' },
+  { label: '六年级', value: '6' },
+  { label: '七年级', value: '7' },
+  { label: '八年级', value: '8' },
+  { label: '九年级', value: '9' },
+];
+
 export default function LoginScreen() {
   const [isRegister, setIsRegister] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'student' | 'teacher'>('student');
+  const [grade, setGrade] = useState('');
   const [loading, setLoading] = useState(false);
 
   const { login, register } = useAuth();
@@ -30,9 +43,14 @@ export default function LoginScreen() {
       return;
     }
 
+    if (isRegister && role === 'student' && !grade) {
+      Toast.show({ type: 'error', text1: '请选择年级' });
+      return;
+    }
+
     setLoading(true);
     const result = isRegister
-      ? await register(username.trim(), password.trim(), role)
+      ? await register(username.trim(), password.trim(), role, role === 'student' ? grade : undefined)
       : await login(username.trim(), password.trim());
 
     setLoading(false);
@@ -83,43 +101,72 @@ export default function LoginScreen() {
           </View>
 
           {isRegister && (
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>角色</Text>
-              <View style={styles.roleSelector}>
-                <TouchableOpacity
-                  style={[
-                    styles.roleButton,
-                    role === 'student' && styles.roleButtonActive,
-                  ]}
-                  onPress={() => setRole('student')}
-                >
-                  <Text
+            <>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>角色</Text>
+                <View style={styles.roleSelector}>
+                  <TouchableOpacity
                     style={[
-                      styles.roleButtonText,
-                      role === 'student' && styles.roleButtonTextActive,
+                      styles.roleButton,
+                      role === 'student' && styles.roleButtonActive,
                     ]}
+                    onPress={() => { setRole('student'); setGrade(''); }}
                   >
-                    👨‍🎓 学生
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.roleButton,
-                    role === 'teacher' && styles.roleButtonActive,
-                  ]}
-                  onPress={() => setRole('teacher')}
-                >
-                  <Text
+                    <Text
+                      style={[
+                        styles.roleButtonText,
+                        role === 'student' && styles.roleButtonTextActive,
+                      ]}
+                    >
+                      👨‍🎓 学生
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
                     style={[
-                      styles.roleButtonText,
-                      role === 'teacher' && styles.roleButtonTextActive,
+                      styles.roleButton,
+                      role === 'teacher' && styles.roleButtonActive,
                     ]}
+                    onPress={() => { setRole('teacher'); setGrade(''); }}
                   >
-                    👨‍🏫 教师
-                  </Text>
-                </TouchableOpacity>
+                    <Text
+                      style={[
+                        styles.roleButtonText,
+                        role === 'teacher' && styles.roleButtonTextActive,
+                      ]}
+                    >
+                      👨‍🏫 教师
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
+
+              {role === 'student' && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>年级</Text>
+                  <View style={styles.gradeGrid}>
+                    {GRADES.map((g) => (
+                      <TouchableOpacity
+                        key={g.value}
+                        style={[
+                          styles.gradeButton,
+                          grade === g.value && styles.gradeButtonActive,
+                        ]}
+                        onPress={() => setGrade(g.value)}
+                      >
+                        <Text
+                          style={[
+                            styles.gradeButtonText,
+                            grade === g.value && styles.gradeButtonTextActive,
+                          ]}
+                        >
+                          {g.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </>
           )}
 
           <TouchableOpacity
@@ -235,6 +282,32 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   roleButtonTextActive: {
+    color: '#6C63FF',
+    fontWeight: '600',
+  },
+  gradeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  gradeButton: {
+    width: '30%',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    alignItems: 'center',
+    backgroundColor: '#fafafa',
+  },
+  gradeButtonActive: {
+    borderColor: '#6C63FF',
+    backgroundColor: '#6C63FF10',
+  },
+  gradeButtonText: {
+    fontSize: 13,
+    color: '#666',
+  },
+  gradeButtonTextActive: {
     color: '#6C63FF',
     fontWeight: '600',
   },

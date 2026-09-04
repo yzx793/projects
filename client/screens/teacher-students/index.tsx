@@ -13,6 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 
+const EXPO_PUBLIC_BACKEND_BASE_URL = process.env.EXPO_PUBLIC_BACKEND_BASE_URL;
+
 interface Student {
   id: number;
   username: string;
@@ -32,67 +34,28 @@ export default function StudentsScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Mock data for now
-    const mockStudents: Student[] = [
-      {
-        id: 1,
-        username: '小明',
-        avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=xiaoming',
-        level: 8,
-        exp: 2400,
-        accuracy: 85,
-        streak: 12,
-        rank: 1,
-        grade: '五年级',
-      },
-      {
-        id: 2,
-        username: '小红',
-        avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=xiaohong',
-        level: 7,
-        exp: 2100,
-        accuracy: 78,
-        streak: 8,
-        rank: 2,
-        grade: '五年级',
-      },
-      {
-        id: 3,
-        username: '小刚',
-        avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=xiaogang',
-        level: 6,
-        exp: 1800,
-        accuracy: 72,
-        streak: 5,
-        rank: 3,
-        grade: '五年级',
-      },
-      {
-        id: 4,
-        username: '小丽',
-        avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=xiaoli',
-        level: 5,
-        exp: 1500,
-        accuracy: 68,
-        streak: 3,
-        rank: 4,
-        grade: '五年级',
-      },
-      {
-        id: 5,
-        username: '小强',
-        avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=xiaoqiang',
-        level: 4,
-        exp: 1200,
-        accuracy: 65,
-        streak: 2,
-        rank: 5,
-        grade: '五年级',
-      },
-    ];
-    setStudents(mockStudents);
-    setLoading(false);
+    const fetchStudents = async () => {
+      try {
+        const res = await fetch(`${EXPO_PUBLIC_BACKEND_BASE_URL}/api/v1/user/students`);
+        const json = await res.json();
+        if (json.code === 0) {
+          setStudents(json.data);
+        }
+      } catch (e) {
+        console.error('Failed to fetch students:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStudents();
   }, []);
+
+  const avgAccuracy = students.length > 0
+    ? Math.round(students.reduce((sum, s) => sum + s.accuracy, 0) / students.length)
+    : 0;
+  const avgStreak = students.length > 0
+    ? Math.round(students.reduce((sum, s) => sum + s.streak, 0) / students.length)
+    : 0;
 
   if (loading) {
     return (
@@ -119,12 +82,12 @@ export default function StudentsScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>76%</Text>
+            <Text style={styles.statValue}>{avgAccuracy}%</Text>
             <Text style={styles.statLabel}>平均正确率</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>6</Text>
+            <Text style={styles.statValue}>{avgStreak}</Text>
             <Text style={styles.statLabel}>平均连续天数</Text>
           </View>
         </View>
@@ -132,37 +95,44 @@ export default function StudentsScreen() {
         {/* Student List */}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>学生列表</Text>
-          {students.map((student) => (
-            <TouchableOpacity
-              key={student.id}
-              style={styles.studentItem}
-              onPress={() => router.push({ pathname: '/(teacher)/student-detail', params: { id: student.id } } as any)}
-            >
-              <View style={styles.rankBadge}>
-                <Text style={styles.rankText}>#{student.rank}</Text>
-              </View>
-              <Image
-                source={{ uri: student.avatar }}
-                style={styles.studentAvatar}
-                contentFit="cover"
-              />
-              <View style={styles.studentInfo}>
-                <Text style={styles.studentName}>{student.username}</Text>
-                <Text style={styles.studentGrade}>{student.grade} · Lv.{student.level}</Text>
-              </View>
-              <View style={styles.studentStats}>
-                <View style={styles.statRow}>
-                  <FontAwesome6 name="bullseye" size={12} color="#6C63FF" />
-                  <Text style={styles.statText}>{student.accuracy}%</Text>
+          {students.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <FontAwesome6 name="users" size={48} color="#DFE6E9" />
+              <Text style={styles.emptyText}>暂无学生数据</Text>
+            </View>
+          ) : (
+            students.map((student) => (
+              <TouchableOpacity
+                key={student.id}
+                style={styles.studentItem}
+                onPress={() => router.push({ pathname: '/(teacher)/student-detail', params: { id: student.id } } as any)}
+              >
+                <View style={styles.rankBadge}>
+                  <Text style={styles.rankText}>#{student.rank}</Text>
                 </View>
-                <View style={styles.statRow}>
-                  <FontAwesome6 name="fire" size={12} color="#FF6B6B" />
-                  <Text style={styles.statText}>{student.streak}天</Text>
+                <Image
+                  source={{ uri: student.avatar }}
+                  style={styles.studentAvatar}
+                  contentFit="cover"
+                />
+                <View style={styles.studentInfo}>
+                  <Text style={styles.studentName}>{student.username}</Text>
+                  <Text style={styles.studentGrade}>{student.grade} · Lv.{student.level}</Text>
                 </View>
-              </View>
-              <FontAwesome6 name="chevron-right" size={14} color="#B2BEC3" />
-            </TouchableOpacity>
-          ))}
+                <View style={styles.studentStats}>
+                  <View style={styles.statRow}>
+                    <FontAwesome6 name="bullseye" size={12} color="#6C63FF" />
+                    <Text style={styles.statText}>{student.accuracy}%</Text>
+                  </View>
+                  <View style={styles.statRow}>
+                    <FontAwesome6 name="fire" size={12} color="#FF6B6B" />
+                    <Text style={styles.statText}>{student.streak}天</Text>
+                  </View>
+                </View>
+                <FontAwesome6 name="chevron-right" size={14} color="#B2BEC3" />
+              </TouchableOpacity>
+            ))
+          )}
         </View>
       </ScrollView>
     </Screen>
@@ -224,6 +194,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#2D3436',
     marginBottom: 12,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#B2BEC3',
+    marginTop: 12,
   },
   studentItem: {
     flexDirection: 'row',
