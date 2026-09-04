@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { queryAll, queryOne, run } from '../db/helpers.js';
+import { getDbType } from '../db/index.js';
 
 const router = Router();
 
@@ -22,7 +23,7 @@ router.get('/', async (req, res) => {
     const params: any[] = [];
     
     if (subject && subject !== 'all') {
-      const dbType = process.env.DATABASE_URL ? 'postgres' : 'sqlite';
+      const dbType = getDbType();
       if (dbType === 'postgres') {
         sql += ' AND subject = $1';
         params.push(subject);
@@ -42,7 +43,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const dbType = process.env.DATABASE_URL ? 'postgres' : 'sqlite';
+    const dbType = getDbType();
     
     let sql: string;
     let params: any[];

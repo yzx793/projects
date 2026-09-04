@@ -10,23 +10,29 @@ let pgPool: any = null;
 
 export type DbType = 'sqlite' | 'postgres';
 
+let initializedDbType: DbType = 'sqlite';
+
 export function getDbType(): DbType {
-  return process.env.DATABASE_URL ? 'postgres' : 'sqlite';
+  return initializedDbType;
 }
 
 export async function initDatabase() {
-  const dbType = getDbType();
+  const envDbType = process.env.DATABASE_URL ? 'postgres' : 'sqlite';
   
-  if (dbType === 'postgres') {
+  if (envDbType === 'postgres') {
     try {
-      return await initPostgres();
+      await initPostgres();
+      initializedDbType = 'postgres';
+      console.log('✅ Using PostgreSQL database');
     } catch (error) {
       console.warn('⚠️  PostgreSQL connection failed, falling back to SQLite');
       console.warn(`   Error: ${error.message}`);
-      return initSQLite();
+      await initSQLite();
+      initializedDbType = 'sqlite';
     }
   } else {
-    return initSQLite();
+    await initSQLite();
+    initializedDbType = 'sqlite';
   }
 }
 
